@@ -218,6 +218,20 @@
   .insight-card.tone-good{ background: var(--green-soft); color: var(--green-dark); }
   .insight-card.tone-mid{ background: var(--amber-soft); color: #6B4712; }
   .insight-card.tone-bad{ background: var(--rust-soft); color: var(--rust); }
+  .share-area{ margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .share-btn{
+    border: 1px solid var(--green); background: var(--green); color: white;
+    padding: 9px 16px; border-radius: var(--radius-s); font-size: 13.5px; font-weight: 600; cursor: pointer;
+  }
+  .share-btn:hover{ background: var(--green-dark); }
+  .share-btn:disabled{ opacity: .6; cursor: default; }
+  .share-hint, .share-status{ margin: 7px 0 0; color: var(--ink-soft); font-size: 11.5px; line-height: 1.45; }
+  .share-status{ min-height: 17px; }
+  .share-fallback{
+    width: 100%; min-height: 76px; margin-top: 8px; padding: 8px;
+    border: 1px solid var(--line); border-radius: var(--radius-s); resize: vertical;
+    color: var(--ink); background: var(--surface); font: 11px/1.35 monospace;
+  }
 
   .loc-row{ display: flex; gap: 10px; align-items: center; padding: 8px 0 4px; }
   .loc-row input[type=text]{
@@ -423,6 +437,12 @@
         </table>
 
         <div class="insights" id="insights"></div>
+        <div class="share-area">
+          <button class="share-btn" id="share-btn" type="button">Teilen</button>
+          <p class="share-hint">Der Link enthält alle Angaben, auch die eingegebene Adresse und angepasste Tarife.</p>
+          <p class="share-status" id="share-status" role="status"></p>
+          <textarea class="share-fallback" id="share-fallback" aria-label="Link zum manuellen Kopieren" readonly hidden></textarea>
+        </div>
       </aside>
     </div>
   </div>
@@ -689,6 +709,7 @@
   };
 
   var STORAGE_KEY = 'carsharing-rechner:v1';
+  var SHARE_FORMAT_VERSION = 1;
   var saveTimer = null;
   var stationSearchGeneration = 0;
 
@@ -715,6 +736,278 @@
         return { key: key, value: value };
       }
     };
+  }
+
+  /**
+   * Converts bytes to URL-safe Base64 without padding.
+   * @param {Uint8Array} bytes - Bytes to encode.
+   * @returns {string} URL-safe Base64 text.
+   */
+  function bytesToBase64Url(bytes){
+    var binary = '';
+    var chunkSize = 8192;
+    for(var offset = 0; offset < bytes.length; offset += chunkSize){
+      var chunk = bytes.subarray(offset, offset + chunkSize);
+      binary += String.fromCharCode.apply(null, chunk);
+    }
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+
+  /**
+   * Converts URL-safe Base64 text back to bytes.
+   * @param {string} encoded - URL-safe Base64 text.
+   * @returns {Uint8Array} Decoded bytes.
+   */
+  function base64UrlToBytes(encoded){
+    var normalized = encoded.replace(/-/g, '+').replace(/_/g, '/');
+    while(normalized.length % 4 !== 0){
+      normalized += '=';
+    }
+    var binary = atob(normalized);
+    var bytes = new Uint8Array(binary.length);
+    for(var index = 0; index < binary.length; index += 1){
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
+  }
+
+  /**
+   * Encodes a complete state snapshot for use in a share URL.
+   * @param {Object} snapshot - Application state to encode.
+   * @returns {Promise<string>} Versioned compressed or plain payload.
+   */
+  async function encodeSharePayload(snapshot){
+    var wrapper = { version: SHARE_FORMAT_VERSION, state: snapshot };
+    var bytes = new TextEncoder().encode(JSON.stringify(wrapper));
+    if(typeof CompressionStream !== 'undefined'){
+      try{
+        var compressedStream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'));
+        var compressedBuffer = await new Response(compressedStream).arrayBuffer();
+        return 'g.' + bytesToBase64Url(new Uint8Array(compressedBuffer));
+      }catch(error){
+        // Uncompressed encoding remains interoperable when compression is unavailable at runtime.
+      }
+    }
+    return 'j.' + bytesToBase64Url(bytes);
+  }
+
+  /**
+   * Decodes a state wrapper from a versioned share payload.
+   * @param {string} payload - Payload stored after the share hash marker.
+   * @returns {Promise<Object>} Parsed wrapper containing version and state.
+   */
+  async function decodeSharePayload(payload){
+    if(typeof payload !== 'string' || payload.length < 3 || payload.charAt(1) !== '.'){
+      throw new Error('share-format');
+    }
+    var encoding = payload.charAt(0);
+    var bytes = base64UrlToBytes(payload.slice(2));
+    if(encoding === 'g'){
+      if(typeof DecompressionStream === 'undefined'){
+        throw new Error('share-compression-unsupported');
+      }
+      var decompressedStream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+      var decompressedBuffer = await new Response(decompressedStream).arrayBuffer();
+      bytes = new Uint8Array(decompressedBuffer);
+    } else if(encoding !== 'j'){
+      throw new Error('share-encoding');
+    }
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }
+
+  /**
+   * Checks whether a value is a non-array object.
+   * @param {*} value - Value to inspect.
+   * @returns {boolean} True for non-null, non-array objects.
+   */
+  function isObject(value){
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  /**
+   * Checks whether an object contains finite non-negative numbers for all named fields.
+   * @param {Object} value - Object containing numeric settings.
+   * @param {Array<string>} fields - Required numeric field names.
+   * @returns {boolean} True when every required field is valid.
+   */
+  function hasValidNumbers(value, fields){
+    if(!isObject(value)){
+      return false;
+    }
+    return fields.every(function(field){
+      return typeof value[field] === 'number' && isFinite(value[field]) && value[field] >= 0;
+    });
+  }
+
+  /**
+   * Validates provider, class and tariff structures received through a share link.
+   * @param {Array<Object>} providers - Provider collection to validate.
+   * @returns {boolean} True when the complete provider hierarchy is usable.
+   */
+  function hasValidProviders(providers){
+    var tariffFields = ['grundgebuehr','zeitpreis','tagespreis','wochenpreis','kmBis100','kmAb100','anmeldegebuehr'];
+    if(!Array.isArray(providers) || providers.length === 0){
+      return false;
+    }
+    return providers.every(function(provider){
+      if(!isObject(provider) || typeof provider.id !== 'string' || typeof provider.name !== 'string' || !Array.isArray(provider.classes) || provider.classes.length === 0){
+        return false;
+      }
+      return provider.classes.every(function(cls){
+        if(!isObject(cls) || typeof cls.id !== 'string' || typeof cls.name !== 'string' || !Array.isArray(cls.tariffs) || cls.tariffs.length === 0){
+          return false;
+        }
+        return cls.tariffs.every(function(selectedTariff){
+          return isObject(selectedTariff) && typeof selectedTariff.id === 'string' && typeof selectedTariff.name === 'string' && hasValidNumbers(selectedTariff.v, tariffFields);
+        });
+      });
+    });
+  }
+
+  /**
+   * Validates a complete application state received from an untrusted URL.
+   * @param {Object} snapshot - Decoded application state.
+   * @returns {boolean} True when the state can safely drive the calculator.
+   */
+  function isValidSharedState(snapshot){
+    var ownFields = ['kaufpreis','haltedauer','restwert','wartung','versicherung','sonstiges','verbrauch','kraftstoffpreis','stellplatz','parkausweis'];
+    var usageFields = ['jahreskm','kurzfahrten','stundenprofahrt','mehrtagesfahrten','tageprofahrt','kmprofahrt'];
+    if(!isObject(snapshot) || !hasValidNumbers(snapshot.own, ownFields) || !hasValidNumbers(snapshot.usage, usageFields)){
+      return false;
+    }
+    if(typeof snapshot.usage.flex !== 'string' || typeof snapshot.usage.parkplatz !== 'boolean'){
+      return false;
+    }
+    if(!isObject(snapshot.location) || typeof snapshot.location.address !== 'string' || !isObject(snapshot.location.byProvider)){
+      return false;
+    }
+    var validLocations = Object.keys(snapshot.location.byProvider).every(function(providerId){
+      return hasValidNumbers(snapshot.location.byProvider[providerId], ['stationCount','walkMinutes']);
+    });
+    if(!validLocations || !hasValidProviders(snapshot.providers) || !isObject(snapshot.selection)){
+      return false;
+    }
+    return typeof snapshot.selection.providerId === 'string' && typeof snapshot.selection.classId === 'string' && typeof snapshot.selection.tariffId === 'string';
+  }
+
+  /**
+   * Replaces current state with a validated shared snapshot.
+   * @param {Object} snapshot - Validated application state.
+   * @returns {void}
+   */
+  function applySharedState(snapshot){
+    state.own = snapshot.own;
+    state.usage = snapshot.usage;
+    state.location = snapshot.location;
+    state.providers = snapshot.providers;
+    state.selection = snapshot.selection;
+  }
+
+  /**
+   * Loads and applies shared settings from the current URL hash.
+   * @returns {Promise<Object>} Result with load state and a user-facing message.
+   */
+  async function loadSharedState(){
+    var marker = '#share=';
+    if(window.location.hash.indexOf(marker) !== 0){
+      return { found: false, loaded: false, message: '' };
+    }
+    try{
+      var payload = decodeURIComponent(window.location.hash.slice(marker.length));
+      var wrapper = await decodeSharePayload(payload);
+      if(!isObject(wrapper) || wrapper.version !== SHARE_FORMAT_VERSION || !isValidSharedState(wrapper.state)){
+        throw new Error('share-state');
+      }
+      applySharedState(wrapper.state);
+      return { found: true, loaded: true, message: 'Geteilte Einstellungen wurden geladen.' };
+    }catch(error){
+      return { found: true, loaded: false, message: 'Der geteilte Link ist ungültig oder wird von diesem Browser nicht unterstützt.' };
+    }
+  }
+
+  /**
+   * Creates a URL containing the complete current state in its hash.
+   * @returns {Promise<string>} Shareable URL.
+   */
+  async function createShareUrl(){
+    var payload = await encodeSharePayload(state);
+    var url = new URL(window.location.href);
+    url.hash = 'share=' + payload;
+    return url.toString();
+  }
+
+  /**
+   * Displays a share URL in a selectable fallback field.
+   * @param {string} url - URL the user should copy manually.
+   * @returns {void}
+   */
+  function showShareFallback(url){
+    var fallback = document.getElementById('share-fallback');
+    fallback.hidden = false;
+    fallback.value = url;
+    fallback.focus();
+    fallback.select();
+    document.getElementById('share-status').textContent = 'Automatisches Teilen oder Kopieren ist hier nicht verfügbar. Der Link ist zum manuellen Kopieren markiert.';
+  }
+
+  /**
+   * Copies a share URL or exposes it for manual copying.
+   * @param {string} url - URL to copy.
+   * @returns {Promise<void>} Resolves after copying or showing the fallback field.
+   */
+  async function copyShareUrl(url){
+    if(navigator.clipboard && typeof navigator.clipboard.writeText === 'function'){
+      try{
+        await navigator.clipboard.writeText(url);
+        document.getElementById('share-status').textContent = 'Link wurde kopiert.';
+        return;
+      }catch(error){
+        // The visible fallback below keeps sharing possible without clipboard permission.
+      }
+    }
+    showShareFallback(url);
+  }
+
+  /**
+   * Opens the native share sheet when available and otherwise copies the state URL.
+   * @returns {Promise<void>} Resolves after the share interaction or fallback completes.
+   */
+  async function shareCurrentState(){
+    var button = document.getElementById('share-btn');
+    var status = document.getElementById('share-status');
+    var fallback = document.getElementById('share-fallback');
+    button.disabled = true;
+    fallback.hidden = true;
+    status.textContent = 'Link wird erstellt …';
+    try{
+      var url = await createShareUrl();
+      var shareData = {
+        title: 'Auto oder Carsharing?',
+        text: 'Meine Einstellungen für den Vergleich von eigenem Auto und Carsharing.',
+        url: url
+      };
+      var nativeShareAvailable = typeof navigator.share === 'function';
+      if(nativeShareAvailable && typeof navigator.canShare === 'function'){
+        nativeShareAvailable = navigator.canShare(shareData);
+      }
+      if(nativeShareAvailable){
+        try{
+          await navigator.share(shareData);
+          status.textContent = 'Geteilt.';
+          return;
+        }catch(error){
+          if(error && error.name === 'AbortError'){
+            status.textContent = 'Teilen wurde abgebrochen.';
+            return;
+          }
+        }
+      }
+      await copyShareUrl(url);
+    }catch(error){
+      status.textContent = 'Der Link konnte nicht erstellt werden.';
+    }finally{
+      button.disabled = false;
+    }
   }
 
   /**
@@ -1474,6 +1767,7 @@
     document.getElementById('loc_count').addEventListener('input', function(){ readLocationFromInputs(); render(); scheduleSave(); });
     document.getElementById('loc_walk').addEventListener('input', function(){ readLocationFromInputs(); render(); scheduleSave(); });
     document.getElementById('loc_address').addEventListener('input', function(){ readLocationFromInputs(); scheduleSave(); });
+    document.getElementById('share-btn').addEventListener('click', shareCurrentState);
   }
 
   // ---------- Rendering: Tarife tab ----------
@@ -1577,6 +1871,7 @@
    */
   async function init(){
     await loadState();
+    var sharedStateResult = await loadSharedState();
     fillOwnInputs();
     fillUsageInputs();
     fillLocationInputs();
@@ -1584,6 +1879,9 @@
     renderProviders();
     bindTabs();
     render();
+    if(sharedStateResult.found){
+      document.getElementById('share-status').textContent = sharedStateResult.message;
+    }
   }
 
   init();
