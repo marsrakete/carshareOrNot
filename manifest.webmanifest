@@ -1,0 +1,23 @@
+{
+  "name": "Auto oder Carsharing?",
+  "short_name": "Carsharing?",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#E8F4ED",
+  "theme_color": "#167C63",
+  "description": "Vergleicht die jährlichen Kosten eines eigenen Autos mit Carsharing.",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/maskable-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

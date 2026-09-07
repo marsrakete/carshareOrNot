@@ -1,0 +1,20 @@
+{
+  "source": "icons/carshare-or-not-og.svg",
+  "render": {
+    "width": 1200,
+    "height": 630,
+    "loadSystemFonts": true,
+    "background": "rgba(255,255,255,0)"
+  },
+  "outputs": [
+    {
+      "format": "png",
+      "path": "icons/carshare-or-not-og.png"
+    },
+    {
+      "format": "jpeg",
+      "path": "og-image.jpg",
+      "quality": 92
+    }
+  ]
+}

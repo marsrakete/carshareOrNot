@@ -85,16 +85,13 @@
 
     if(selectedTariff){
       var v = selectedTariff.v;
-      var multiTrips = Math.max(u.mehrtagesfahrten, 0);
-      var multiDays = Math.max(u.tageprofahrt, 0);
-      var multiKmEach = Math.max(u.kmprofahrt, 0);
 
       /**
-       * Calculates the time charge for one multi-day booking.
+       * Calculates the time charge for one booking lasting one or more days.
        * @param {number} days - Booking duration in days.
        * @returns {number} Time charge in euros.
        */
-      function multiTimeCost(days){
+      function packageTimeCost(days){
         if(v.wochenpreis > 0){
           var weeks = Math.floor(days / 7);
           var remainingDays = days % 7;
@@ -125,19 +122,99 @@
         shortTimeCostTotal = shortTimeCostEach * shortTripsPerYear;
       }
 
-      var multiTimeCostTotal = multiTrips * multiTimeCost(multiDays);
-      var plannedMultiKmTotal = multiTrips * multiKmEach;
-      var multiKmTotal = Math.min(plannedMultiKmTotal, jahreskm);
-      var calculatedMultiKmEach = 0;
-      if(multiTrips > 0){
-        calculatedMultiKmEach = multiKmTotal / multiTrips;
-      }
-      var multiKmCostTotal = 0;
-      if(chargesDistance){
-        multiKmCostTotal = multiTrips * kmCost(calculatedMultiKmEach);
+      var bringDaysPerYear = Math.max(u.bringtageprowoche, 0) * Math.max(u.bringwochenprojahr, 0);
+      var bringSeparateShare = Math.max(u.bringseparatanteil, 0);
+      bringSeparateShare = Math.min(bringSeparateShare, 100) / 100;
+      var bringTrips = bringDaysPerYear * Math.max(u.bringbuchungenprotag, 0) * bringSeparateShare;
+      var bringPlannedKm = bringDaysPerYear * Math.max(u.bringkmprotag, 0) * bringSeparateShare;
+
+      var tripCategories = [
+        {
+          key: 'schoolRuns',
+          trips: bringTrips,
+          hours: Math.max(u.bringstundenprobuchung, 0),
+          days: 0,
+          plannedKm: bringPlannedKm,
+          usesDayPackages: false
+        },
+        {
+          key: 'dayTrips',
+          trips: Math.max(u.tagesausfluege, 0),
+          hours: Math.max(u.stundenproausflug, 0),
+          days: 0,
+          plannedKm: Math.max(u.tagesausfluege, 0) * Math.max(u.kmproausflug, 0),
+          usesDayPackages: false
+        },
+        {
+          key: 'multiDay',
+          trips: Math.max(u.mehrtagesfahrten, 0),
+          hours: 0,
+          days: Math.max(u.tageprofahrt, 0),
+          plannedKm: Math.max(u.mehrtagesfahrten, 0) * Math.max(u.kmprofahrt, 0),
+          usesDayPackages: true
+        },
+        {
+          key: 'vacations',
+          trips: Math.max(u.urlaubsfahrten, 0),
+          hours: 0,
+          days: Math.max(u.tageprourlaub, 0),
+          plannedKm: Math.max(u.urlaubsfahrten, 0) * Math.max(u.kmprourlaub, 0),
+          usesDayPackages: true
+        }
+      ];
+
+      var plannedDetailedKm = 0;
+      for(var categoryIndex = 0; categoryIndex < tripCategories.length; categoryIndex += 1){
+        var plannedCategory = tripCategories[categoryIndex];
+        plannedDetailedKm += plannedCategory.plannedKm;
       }
 
-      var shortKmTotal = Math.max(jahreskm - multiKmTotal, 0);
+      var mileageScale = 1;
+      if(plannedDetailedKm > jahreskm && plannedDetailedKm > 0){
+        mileageScale = jahreskm / plannedDetailedKm;
+      }
+
+      var categoryCosts = {};
+      var detailedKmTotal = 0;
+      var detailedTimeCostTotal = 0;
+      var detailedKmCostTotal = 0;
+      for(var costIndex = 0; costIndex < tripCategories.length; costIndex += 1){
+        var category = tripCategories[costIndex];
+        var categoryKm = category.plannedKm * mileageScale;
+        var categoryKmEach = 0;
+        if(category.trips > 0){
+          categoryKmEach = categoryKm / category.trips;
+        }
+
+        var categoryTimeCost = 0;
+        if(category.usesDayPackages){
+          categoryTimeCost = category.trips * packageTimeCost(category.days);
+        } else if(chargesShortTime){
+          var categoryTimeCostEach = category.hours * v.zeitpreis;
+          if(v.tagespreis > 0){
+            categoryTimeCostEach = Math.min(categoryTimeCostEach, v.tagespreis);
+          }
+          categoryTimeCost = category.trips * categoryTimeCostEach;
+        }
+
+        var categoryKmCost = 0;
+        if(chargesDistance && category.trips > 0){
+          categoryKmCost = category.trips * kmCost(categoryKmEach);
+        }
+
+        categoryCosts[category.key] = {
+          trips: category.trips,
+          km: categoryKm,
+          timeCost: categoryTimeCost,
+          kmCost: categoryKmCost,
+          total: categoryTimeCost + categoryKmCost
+        };
+        detailedKmTotal += categoryKm;
+        detailedTimeCostTotal += categoryTimeCost;
+        detailedKmCostTotal += categoryKmCost;
+      }
+
+      var shortKmTotal = Math.max(jahreskm - detailedKmTotal, 0);
       var calculatedShortTrips = shortTripsPerYear;
       var implicitShortTrip = false;
       if(shortKmTotal > 0 && calculatedShortTrips === 0){
@@ -149,13 +226,20 @@
         var shortKmEach = shortKmTotal / calculatedShortTrips;
         shortKmCostTotal = calculatedShortTrips * kmCost(shortKmEach);
       }
+      categoryCosts.everyday = {
+        trips: calculatedShortTrips,
+        km: shortKmTotal,
+        timeCost: shortTimeCostTotal,
+        kmCost: shortKmCostTotal,
+        total: shortTimeCostTotal + shortKmCostTotal
+      };
 
       var baseFeeAnnual = v.grundgebuehr * 12;
       var anmeldeAmortized = v.anmeldegebuehr / comparisonYears;
 
       var fixCambio = baseFeeAnnual + anmeldeAmortized;
-      var timeCambio = shortTimeCostTotal + multiTimeCostTotal;
-      var kmCambio = shortKmCostTotal + multiKmCostTotal;
+      var timeCambio = shortTimeCostTotal + detailedTimeCostTotal;
+      var kmCambio = shortKmCostTotal + detailedKmCostTotal;
       var totalCambio = fixCambio + timeCambio + kmCambio;
       var providerCostPerKm = 0;
       if(jahreskm > 0){
@@ -166,9 +250,17 @@
         fix: fixCambio, fuel: timeCambio, km: kmCambio, total: totalCambio,
         perKm: providerCostPerKm,
         tariffName: selectedTariff.name, className: cls.name,
-        multiTrips: multiTrips, multiKm: multiKmTotal,
-        multiCost: multiTimeCostTotal + multiKmCostTotal,
-        mileageAdjusted: plannedMultiKmTotal > jahreskm,
+        multiTrips: categoryCosts.multiDay.trips, multiKm: categoryCosts.multiDay.km,
+        multiCost: categoryCosts.multiDay.total,
+        schoolRunTrips: categoryCosts.schoolRuns.trips,
+        schoolRunKm: categoryCosts.schoolRuns.km,
+        schoolRunCost: categoryCosts.schoolRuns.total,
+        dayTripCost: categoryCosts.dayTrips.total,
+        vacationTrips: categoryCosts.vacations.trips,
+        vacationKm: categoryCosts.vacations.km,
+        vacationCost: categoryCosts.vacations.total,
+        tripCategories: categoryCosts,
+        mileageAdjusted: plannedDetailedKm > jahreskm,
         implicitShortTrip: implicitShortTrip,
         billingMode: v.billingMode
       };

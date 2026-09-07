@@ -4,6 +4,11 @@
   "private": true,
   "scripts": {
     "check": "node --test",
-    "test": "node --test"
+    "test": "node --test",
+    "build:og-image": "node scripts/build-og-images.js"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "sharp": "^0.35.2"
   }
 }

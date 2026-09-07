@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">carshareOrNot maskierbares App-Icon</title>
+  <desc id="desc">Ein Auto vor drei verbundenen Punkten mit zusätzlichem Sicherheitsrand.</desc>
+  <defs>
+    <linearGradient id="mask-bg" x1="34" y1="24" x2="478" y2="492" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#28A57F"/>
+      <stop offset="1" stop-color="#075443"/>
+    </linearGradient>
+    <linearGradient id="mask-car" x1="176" y1="203" x2="336" y2="342" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E5F7EF"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#mask-bg)"/>
+  <circle cx="402" cy="110" r="98" fill="#A8E8CC" opacity=".16"/>
+  <path d="M351 157c28 10 47 29 55 57M351 157l22-19M406 214l25-6" fill="none" stroke="#A8E8CC" stroke-width="11" stroke-linecap="round"/>
+  <circle cx="351" cy="157" r="14" fill="#E9FFF6"/>
+  <circle cx="373" cy="138" r="11" fill="#E9FFF6"/>
+  <circle cx="431" cy="208" r="11" fill="#E9FFF6"/>
+  <path d="M151 286l22-60c6-17 22-28 40-28h86c18 0 34 11 40 28l22 60" fill="none" stroke="url(#mask-car)" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M138 289c0-15 12-27 27-27h182c15 0 27 12 27 27v52c0 14-11 25-25 25H163c-14 0-25-11-25-25v-52Z" fill="url(#mask-car)"/>
+  <path d="M176 262l16-38c4-9 12-15 22-15h84c10 0 18 6 22 15l16 38H176Z" fill="#BFE9D6"/>
+  <circle cx="183" cy="315" r="15" fill="#167C63"/>
+  <circle cx="329" cy="315" r="15" fill="#167C63"/>
+  <path d="M163 366v16M349 366v16" stroke="#E5F7EF" stroke-width="21" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">carshareOrNot</title>
+  <desc id="desc">Ein Auto vor drei verbundenen Punkten auf grünem Grund.</desc>
+  <defs>
+    <linearGradient id="icon-bg" x1="52" y1="36" x2="460" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#28A57F"/>
+      <stop offset="1" stop-color="#075443"/>
+    </linearGradient>
+    <linearGradient id="car-fill" x1="154" y1="186" x2="350" y2="355" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E5F7EF"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="126" fill="url(#icon-bg)"/>
+  <circle cx="416" cy="104" r="92" fill="#A8E8CC" opacity=".18"/>
+  <path d="M366 138c34 12 56 35 66 69M366 138l26-23M432 207l30-7" fill="none" stroke="#A8E8CC" stroke-width="13" stroke-linecap="round"/>
+  <circle cx="366" cy="138" r="17" fill="#E9FFF6"/>
+  <circle cx="392" cy="115" r="13" fill="#E9FFF6"/>
+  <circle cx="462" cy="200" r="13" fill="#E9FFF6"/>
+  <path d="M128 288l26-72c7-20 26-33 47-33h110c21 0 40 13 47 33l26 72" fill="none" stroke="url(#car-fill)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M111 292c0-18 15-33 33-33h224c18 0 33 15 33 33v62c0 17-14 31-31 31H142c-17 0-31-14-31-31v-62Z" fill="url(#car-fill)"/>
+  <path d="M156 259l19-45c5-11 15-18 27-18h108c12 0 22 7 27 18l19 45H156Z" fill="#BFE9D6"/>
+  <circle cx="165" cy="322" r="18" fill="#167C63"/>
+  <circle cx="347" cy="322" r="18" fill="#167C63"/>
+  <path d="M141 385v20M371 385v20" stroke="#E5F7EF" stroke-width="25" stroke-linecap="round"/>
+</svg>

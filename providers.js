@@ -58,7 +58,12 @@
   function defaultUsage(){
     return {
       jahreskm: 6000, vergleichsjahre: 6, kurzfahrten: 6, stundenprofahrt: 2,
+      bringtageprowoche: 0, bringwochenprojahr: 40, bringkmprotag: 12,
+      bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 100,
+      kindersitz: false,
+      tagesausfluege: 0, stundenproausflug: 8, kmproausflug: 120,
       mehrtagesfahrten: 3, tageprofahrt: 3, kmprofahrt: 250,
+      urlaubsfahrten: 0, tageprourlaub: 7, kmprourlaub: 900,
       flex: 'teilweise', parkplatz: false
     };
   }

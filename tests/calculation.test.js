@@ -105,6 +105,76 @@ test('multi-day mileage cannot exceed annual mileage', function(){
   assert.equal(result.cambio.mileageAdjusted, true);
 });
 
+test('day trips use hourly cost caps and per-booking distance tiers', function(){
+  const app = loadApplication();
+  app.state.usage = Object.assign(app.defaultUsage(), {
+    jahreskm: 120,
+    kurzfahrten: 0,
+    tagesausfluege: 1,
+    stundenproausflug: 8,
+    kmproausflug: 120,
+    mehrtagesfahrten: 0,
+    urlaubsfahrten: 0
+  });
+  const result = app.calculate(app.state);
+  assert.ok(Math.abs(result.cambio.dayTripCost - 39.8) < 0.001);
+});
+
+test('bring and pickup trips account for recurring bookings and combined journeys', function(){
+  const app = loadApplication();
+  app.state.usage = Object.assign(app.defaultUsage(), {
+    jahreskm: 2400,
+    kurzfahrten: 0,
+    bringtageprowoche: 5,
+    bringwochenprojahr: 40,
+    bringkmprotag: 12,
+    bringbuchungenprotag: 2,
+    bringstundenprobuchung: 0.75,
+    bringseparatanteil: 50,
+    tagesausfluege: 0,
+    mehrtagesfahrten: 0,
+    urlaubsfahrten: 0
+  });
+  const result = app.calculate(app.state);
+  assert.equal(result.cambio.schoolRunTrips, 200);
+  assert.equal(result.cambio.schoolRunKm, 1200);
+  assert.ok(Math.abs(result.cambio.schoolRunCost - 531) < 0.001);
+});
+
+test('vacation trips use weekly and daily packages', function(){
+  const app = loadApplication();
+  app.state.usage = Object.assign(app.defaultUsage(), {
+    jahreskm: 900,
+    kurzfahrten: 0,
+    tagesausfluege: 0,
+    mehrtagesfahrten: 0,
+    urlaubsfahrten: 1,
+    tageprourlaub: 9,
+    kmprourlaub: 900
+  });
+  const result = app.calculate(app.state);
+  assert.ok(Math.abs(result.cambio.vacationCost - 298) < 0.001);
+});
+
+test('detailed trip mileage is proportionally capped at annual mileage', function(){
+  const app = loadApplication();
+  app.state.usage = Object.assign(app.defaultUsage(), {
+    jahreskm: 1000,
+    kurzfahrten: 0,
+    tagesausfluege: 2,
+    kmproausflug: 120,
+    mehrtagesfahrten: 2,
+    kmprofahrt: 250,
+    urlaubsfahrten: 1,
+    kmprourlaub: 900
+  });
+  const result = app.calculate(app.state);
+  const categories = result.cambio.tripCategories;
+  const detailedKm = categories.schoolRuns.km + categories.dayTrips.km + categories.multiDay.km + categories.vacations.km;
+  assert.ok(Math.abs(detailedKm - 1000) < 0.001);
+  assert.equal(result.cambio.mileageAdjusted, true);
+});
+
 test('billing model can include distance in the time price', function(){
   const app = loadApplication();
   app.state.selection = { providerId: 'free2move', classId: 'klein', tariffId: 'zeit' };

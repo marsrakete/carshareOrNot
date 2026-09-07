@@ -255,11 +255,17 @@
    */
   function isValidSharedState(snapshot){
     var ownFields = ['kaufpreis','haltedauer','restwert','wartung','versicherung','sonstiges','verbrauch','kraftstoffpreis','stellplatz','parkausweis'];
-    var usageFields = ['jahreskm','vergleichsjahre','kurzfahrten','stundenprofahrt','mehrtagesfahrten','tageprofahrt','kmprofahrt'];
+    var usageFields = [
+      'jahreskm','vergleichsjahre','kurzfahrten','stundenprofahrt',
+      'bringtageprowoche','bringwochenprojahr','bringkmprotag','bringbuchungenprotag','bringstundenprobuchung','bringseparatanteil',
+      'tagesausfluege','stundenproausflug','kmproausflug',
+      'mehrtagesfahrten','tageprofahrt','kmprofahrt',
+      'urlaubsfahrten','tageprourlaub','kmprourlaub'
+    ];
     if(!isObject(snapshot) || !hasValidNumbers(snapshot.own, ownFields) || !hasValidNumbers(snapshot.usage, usageFields)){
       return false;
     }
-    if(typeof snapshot.usage.flex !== 'string' || typeof snapshot.usage.parkplatz !== 'boolean'){
+    if(typeof snapshot.usage.flex !== 'string' || typeof snapshot.usage.parkplatz !== 'boolean' || typeof snapshot.usage.kindersitz !== 'boolean'){
       return false;
     }
     if(!isObject(snapshot.location) || typeof snapshot.location.address !== 'string' || !isObject(snapshot.location.byProvider)){
@@ -300,11 +306,12 @@
     try{
       var payload = decodeURIComponent(window.location.hash.slice(marker.length));
       var wrapper = await decodeSharePayload(payload);
-      if(isObject(wrapper) && isObject(wrapper.state) && isObject(wrapper.state.usage) && typeof wrapper.state.usage.vergleichsjahre !== 'number'){
-        wrapper.state.usage.vergleichsjahre = 1;
-        if(isObject(wrapper.state.own) && typeof wrapper.state.own.haltedauer === 'number'){
-          wrapper.state.usage.vergleichsjahre = Math.max(wrapper.state.own.haltedauer, 1);
+      if(isObject(wrapper) && isObject(wrapper.state) && isObject(wrapper.state.usage)){
+        var sharedUsage = Object.assign(defaultUsage(), wrapper.state.usage);
+        if(typeof wrapper.state.usage.vergleichsjahre !== 'number' && isObject(wrapper.state.own) && typeof wrapper.state.own.haltedauer === 'number'){
+          sharedUsage.vergleichsjahre = Math.max(wrapper.state.own.haltedauer, 1);
         }
+        wrapper.state.usage = sharedUsage;
       }
       if(!isObject(wrapper) || wrapper.version !== SHARE_FORMAT_VERSION || !isValidSharedState(wrapper.state)){
         throw new Error('share-state');
@@ -552,9 +559,22 @@
     document.getElementById('use_vergleichsjahre').value = u.vergleichsjahre;
     document.getElementById('use_kurzfahrten').value = u.kurzfahrten;
     document.getElementById('use_stundenprofahrt').value = u.stundenprofahrt;
+    document.getElementById('use_bringtageprowoche').value = u.bringtageprowoche;
+    document.getElementById('use_bringwochenprojahr').value = u.bringwochenprojahr;
+    document.getElementById('use_bringkmprotag').value = u.bringkmprotag;
+    document.getElementById('use_bringbuchungenprotag').value = u.bringbuchungenprotag;
+    document.getElementById('use_bringstundenprobuchung').value = u.bringstundenprobuchung;
+    document.getElementById('use_bringseparatanteil').value = u.bringseparatanteil;
+    document.getElementById('use_kindersitz').checked = !!u.kindersitz;
+    document.getElementById('use_tagesausfluege').value = u.tagesausfluege;
+    document.getElementById('use_stundenproausflug').value = u.stundenproausflug;
+    document.getElementById('use_kmproausflug').value = u.kmproausflug;
     document.getElementById('use_mehrtagesfahrten').value = u.mehrtagesfahrten;
     document.getElementById('use_tageprofahrt').value = u.tageprofahrt;
     document.getElementById('use_kmprofahrt').value = u.kmprofahrt;
+    document.getElementById('use_urlaubsfahrten').value = u.urlaubsfahrten;
+    document.getElementById('use_tageprourlaub').value = u.tageprourlaub;
+    document.getElementById('use_kmprourlaub').value = u.kmprourlaub;
     document.getElementById('use_parkplatz').checked = !!u.parkplatz;
     var radios = document.getElementsByName('flex');
     for(var i=0;i<radios.length;i++){ radios[i].checked = (radios[i].value === u.flex); }
@@ -562,7 +582,7 @@
   }
 
   /**
-   * Shows whether the detailed multi-day mileage exceeds the annual mileage.
+   * Shows whether detailed trip mileage conflicts with the annual mileage.
    * @param {Object} result - Current calculation result.
    * @returns {void}
    */
@@ -570,10 +590,10 @@
     var validation = document.getElementById('usage-km-validation');
     var messages = [];
     if(result.cambio && result.cambio.mileageAdjusted){
-      messages.push('Die Mehrtagesfahrten ergeben mehr Kilometer als die gesamte Fahrleistung. Für die Berechnung werden die Mehrtageskilometer auf die jährliche Fahrleistung begrenzt.');
+      messages.push('Bring- und Abholfahrten, Tagesausflüge, Mehrtages- und Urlaubsfahrten ergeben zusammen mehr Kilometer als die gesamte Fahrleistung. Für die Berechnung werden diese Strecken anteilig auf die jährliche Fahrleistung begrenzt.');
     }
     if(result.cambio && result.cambio.implicitShortTrip){
-      messages.push('Nach Abzug der Mehrtagesfahrten bleiben Kilometer übrig, obwohl keine Alltagsfahrten angegeben sind. Diese Strecke wird für die Berechnung als eine Fahrt behandelt.');
+      messages.push('Nach Abzug der einzeln erfassten Fahrten bleiben Kilometer übrig, obwohl keine Alltagsfahrten angegeben sind. Diese Strecke wird für die Berechnung als eine Fahrt behandelt.');
     }
     validation.textContent = messages.join(' ');
   }
@@ -888,6 +908,36 @@
         text: loc.stationCount + ' Station(en) in der Nähe. Bei rund ' + loc.walkMinutes + ' Gehminuten bis zur nächsten Station ist Carsharing für spontane Fahrten wenig praktikabel.' + flexHint });
     }
 
+    if(r.cambio && u.bringtageprowoche > 0 && u.bringwochenprojahr > 0){
+      var schoolRunTone = 'good';
+      var schoolRunTitle = 'Bring- und Abholfahrten sind eingerechnet';
+      var schoolRunNotes = [];
+      var schoolRunDays = Math.round(u.bringtageprowoche * u.bringwochenprojahr);
+      var schoolRunBookings = Math.round(r.cambio.schoolRunTrips);
+      if(loc.source === 'unknown' || loc.source === 'legacy' || loc.stationCount === null || loc.walkMinutes === null){
+        schoolRunTone = 'mid';
+        schoolRunTitle = 'Zeitkritische Bringfahrten brauchen Planung';
+        schoolRunNotes.push('Prüfe die Fahrzeugverfügbarkeit zu den festen Bring- und Abholzeiten.');
+      } else if(loc.stationCount === 0 || loc.walkMinutes > 10){
+        schoolRunTone = 'mid';
+        schoolRunTitle = 'Der Stationsweg erschwert regelmäßige Bringfahrten';
+        schoolRunNotes.push('Der Weg zur Station kommt bei jeder einzelnen Buchung zur Fahrzeit hinzu.');
+      }
+      if(u.kindersitz){
+        schoolRunTone = 'mid';
+        schoolRunTitle = 'Kindersitz und Verfügbarkeit vorher klären';
+        schoolRunNotes.push('Ein passender Kindersitz ist bei Carsharing-Fahrzeugen nicht selbstverständlich; auch Transport und Aufbewahrung können zusätzlichen Aufwand verursachen.');
+      }
+      if(u.bringseparatanteil < 100){
+        schoolRunNotes.push('Der kombinierte Anteil wird anderen ohnehin stattfindenden Wegen zugerechnet.');
+      }
+      cards.push({
+        tone: schoolRunTone,
+        title: schoolRunTitle,
+        text: schoolRunDays + ' Bring-/Abholtage ergeben rund ' + schoolRunBookings + ' eigenständige Buchungen und ' + fmtEUR(r.cambio.schoolRunCost) + ' Fahrtkosten pro Jahr. ' + schoolRunNotes.join(' ')
+      });
+    }
+
     // Wochenend-/Mehrtagesfahrten: Kostenanteil vs. Kilometeranteil
     if(r.cambio && u.mehrtagesfahrten > 0 && u.jahreskm > 0){
       var kmShare = r.cambio.multiKm / u.jahreskm;
@@ -904,6 +954,35 @@
         cards.push({ tone: 'good', title: 'Mehrtagesfahrten fallen nicht überproportional ins Gewicht',
           text: 'Deine ' + u.mehrtagesfahrten + ' Mehrtagesfahrten pro Jahr verursachen ' + costPct + '\u00A0% der Kosten bei ' + r.providerName + ' \u2013 das entspricht in etwa ihrem Kilometeranteil.' });
       }
+    }
+
+    if(r.cambio && u.urlaubsfahrten > 0 && u.jahreskm > 0){
+      var vacationKmShare = r.cambio.vacationKm / u.jahreskm;
+      var vacationCostShare = 0;
+      if(r.cambio.total > 0){
+        vacationCostShare = r.cambio.vacationCost / r.cambio.total;
+      }
+      var vacationKmPct = Math.round(vacationKmShare * 100);
+      var vacationCostPct = Math.round(vacationCostShare * 100);
+      var vacationTripLabel = 'Urlaubsfahrten';
+      var vacationVerb = 'verursachen';
+      if(u.urlaubsfahrten === 1){
+        vacationTripLabel = 'Urlaubsfahrt';
+        vacationVerb = 'verursacht';
+      }
+      var vacationTone = 'good';
+      var vacationTitle = 'Urlaubsfahrten bleiben im Verhältnis';
+      var vacationAdvice = 'Die Kosten liegen ungefähr im Verhältnis zu ihrem Kilometeranteil.';
+      if(vacationCostShare - vacationKmShare > 0.15 || vacationCostShare > 0.4){
+        vacationTone = 'mid';
+        vacationTitle = 'Urlaubsfahrten prägen die Carsharing-Kosten';
+        vacationAdvice = 'Für diese langen Buchungen lohnt sich zusätzlich ein Vergleich mit klassischen Mietwagenangeboten.';
+      }
+      cards.push({
+        tone: vacationTone,
+        title: vacationTitle,
+        text: 'Deine ' + u.urlaubsfahrten + ' ' + vacationTripLabel + ' ' + vacationVerb + ' ' + vacationKmPct + '\u00A0% der Kilometer und ' + vacationCostPct + '\u00A0% der Kosten bei ' + r.providerName + ' (' + fmtEUR(r.cambio.vacationCost) + '/Jahr). ' + vacationAdvice
+      });
     }
 
     // Parkplatzsuche ohne garantierten Platz: Nachteil beim eigenen Auto benennen
@@ -939,6 +1018,37 @@
       fragment.appendChild(element);
     });
     el.replaceChildren(fragment);
+  }
+
+  /**
+   * Renders annual carsharing costs split by usage category.
+   * @param {Object} result - Current cost calculation result.
+   * @returns {void}
+   */
+  function renderTripCostBreakdown(result){
+    var container = document.getElementById('trip-cost-breakdown');
+    var template = document.getElementById('trip-cost-row-template');
+    var fragment = document.createDocumentFragment();
+    var rows = [
+      { key: 'everyday', label: 'Alltagsfahrten' },
+      { key: 'schoolRuns', label: 'Bring- und Abholfahrten' },
+      { key: 'dayTrips', label: 'Tagesausflüge' },
+      { key: 'multiDay', label: 'Mehrtagesfahrten' },
+      { key: 'vacations', label: 'Urlaubsfahrten' }
+    ];
+
+    for(var index = 0; index < rows.length; index += 1){
+      var row = rows[index];
+      var value = 0;
+      if(result.cambio && result.cambio.tripCategories[row.key]){
+        value = result.cambio.tripCategories[row.key].total;
+      }
+      var element = template.content.firstElementChild.cloneNode(true);
+      element.querySelector('.trip-cost-label').textContent = row.label;
+      element.querySelector('.trip-cost-value').textContent = fmtEUR(value);
+      fragment.appendChild(element);
+    }
+    container.replaceChildren(fragment);
   }
 
   /**
@@ -1008,6 +1118,7 @@
     }
 
     renderUsageValidation(r);
+    renderTripCostBreakdown(r);
     renderInsights(r);
   }
 
@@ -1042,9 +1153,22 @@
       vergleichsjahre: +document.getElementById('use_vergleichsjahre').value || 1,
       kurzfahrten: +document.getElementById('use_kurzfahrten').value || 0,
       stundenprofahrt: +document.getElementById('use_stundenprofahrt').value || 0,
+      bringtageprowoche: +document.getElementById('use_bringtageprowoche').value || 0,
+      bringwochenprojahr: +document.getElementById('use_bringwochenprojahr').value || 0,
+      bringkmprotag: +document.getElementById('use_bringkmprotag').value || 0,
+      bringbuchungenprotag: +document.getElementById('use_bringbuchungenprotag').value || 0,
+      bringstundenprobuchung: +document.getElementById('use_bringstundenprobuchung').value || 0,
+      bringseparatanteil: +document.getElementById('use_bringseparatanteil').value || 0,
+      kindersitz: document.getElementById('use_kindersitz').checked,
+      tagesausfluege: +document.getElementById('use_tagesausfluege').value || 0,
+      stundenproausflug: +document.getElementById('use_stundenproausflug').value || 0,
+      kmproausflug: +document.getElementById('use_kmproausflug').value || 0,
       mehrtagesfahrten: +document.getElementById('use_mehrtagesfahrten').value || 0,
       tageprofahrt: +document.getElementById('use_tageprofahrt').value || 0,
       kmprofahrt: +document.getElementById('use_kmprofahrt').value || 0,
+      urlaubsfahrten: +document.getElementById('use_urlaubsfahrten').value || 0,
+      tageprourlaub: +document.getElementById('use_tageprourlaub').value || 0,
+      kmprourlaub: +document.getElementById('use_kmprourlaub').value || 0,
       flex: flex,
       parkplatz: document.getElementById('use_parkplatz').checked
     };
@@ -1056,7 +1180,13 @@
    */
   function bindRechnerEvents(){
     var ownIds = ['own_kaufpreis','own_haltedauer','own_restwert','own_wartung','own_versicherung','own_sonstiges','own_verbrauch','own_kraftstoffpreis','own_stellplatz','own_parkausweis'];
-    var useIds = ['use_jahreskm','use_vergleichsjahre','use_kurzfahrten','use_stundenprofahrt','use_mehrtagesfahrten','use_tageprofahrt','use_kmprofahrt'];
+    var useIds = [
+      'use_jahreskm','use_vergleichsjahre','use_kurzfahrten','use_stundenprofahrt',
+      'use_bringtageprowoche','use_bringwochenprojahr','use_bringkmprotag','use_bringbuchungenprotag','use_bringstundenprobuchung','use_bringseparatanteil',
+      'use_tagesausfluege','use_stundenproausflug','use_kmproausflug',
+      'use_mehrtagesfahrten','use_tageprofahrt','use_kmprofahrt',
+      'use_urlaubsfahrten','use_tageprourlaub','use_kmprourlaub'
+    ];
 
     ownIds.forEach(function(id){
       document.getElementById(id).addEventListener('input', function(){ readOwnFromInputs(); render(); scheduleSave(); });
@@ -1068,6 +1198,7 @@
       r.addEventListener('change', function(){ readUsageFromInputs(); render(); scheduleSave(); });
     });
     document.getElementById('use_parkplatz').addEventListener('change', function(){ readUsageFromInputs(); render(); scheduleSave(); });
+    document.getElementById('use_kindersitz').addEventListener('change', function(){ readUsageFromInputs(); render(); scheduleSave(); });
 
     document.getElementById('sel_provider').addEventListener('change', function(e){
       stationSearchGeneration += 1;
