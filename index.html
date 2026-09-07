@@ -233,6 +233,7 @@
   .loc-search-btn:disabled{ opacity: .6; cursor: default; }
   .loc-status{ font-size: 12.5px; color: var(--ink-soft); min-height: 16px; padding: 6px 0 4px; }
   .loc-source{ font-size: 11.5px; color: var(--ink-soft); margin: 2px 0 14px; }
+  .field-validation{ color: var(--rust); font-size: 12.5px; margin: 4px 0 0; min-height: 19px; }
 
   /* Tariff editor */
   .tariff-panel{ margin-top: 32px; }
@@ -255,7 +256,8 @@
   }
   .remove-btn:hover{ background: var(--rust-soft); }
 
-  table.tariff-table{ width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tariff-table-scroll{ max-width: 100%; overflow-x: auto; }
+  table.tariff-table{ width: 100%; min-width: 860px; border-collapse: collapse; font-size: 13px; }
   table.tariff-table th{
     text-align: right; font-weight: 600; color: var(--ink-soft); font-size: 11.5px;
     padding: 12px 10px 8px; border-bottom: 1px solid var(--line); white-space: nowrap;
@@ -351,6 +353,7 @@
           <div class="field-row"><label>Mehrtägige Fahrten <span class="unit">Anzahl/Jahr</span></label><input type="number" id="use_mehrtagesfahrten" min="0" step="1"></div>
           <div class="field-row"><label>Ø Dauer je Mehrtagesfahrt <span class="unit">Tage</span></label><input type="number" id="use_tageprofahrt" min="0" step="1"></div>
           <div class="field-row"><label>Ø Strecke je Mehrtagesfahrt <span class="unit">km</span></label><input type="number" id="use_kmprofahrt" min="0" step="10"></div>
+          <p class="field-validation" id="usage-km-validation" role="status"></p>
 
           <div class="radio-group">
             <label style="font-size:14px; margin-bottom:2px; display:block;">Wie spontan musst du losfahren können?</label>
@@ -458,11 +461,56 @@
 
 </div>
 
+<template id="insight-card-template">
+  <div class="insight-card">
+    <span class="insight-title"></span>
+    <span class="insight-text"></span>
+  </div>
+</template>
+
+<template id="provider-block-template">
+  <div class="provider-block">
+    <div class="provider-head">
+      <input class="provider-name" type="text">
+      <button class="remove-btn" type="button">Anbieter entfernen</button>
+    </div>
+    <div class="tariff-table-scroll">
+      <table class="tariff-table">
+        <thead>
+          <tr>
+            <th>Klasse</th><th>Tarif</th>
+            <th>Grundgeb. €/Mon.</th><th>Zeitpreis €/Std.</th><th>Tagespreis €</th>
+            <th>km bis 100 €</th><th>km ab 101 €</th><th>Anmeldegeb. €</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</template>
+
+<template id="tariff-row-template">
+  <tr>
+    <td data-cell="class"></td>
+    <td data-cell="tariff"></td>
+    <td><input type="number" step="1" min="0" data-field="grundgebuehr"></td>
+    <td><input type="number" step="0.05" min="0" data-field="zeitpreis"></td>
+    <td><input type="number" step="1" min="0" data-field="tagespreis"></td>
+    <td><input type="number" step="0.01" min="0" data-field="kmBis100"></td>
+    <td><input type="number" step="0.01" min="0" data-field="kmAb100"></td>
+    <td><input type="number" step="1" min="0" data-field="anmeldegebuehr"></td>
+  </tr>
+</template>
+
 <script>
 (function(){
 
   // ---------- Defaults ----------
 
+  /**
+   * Creates the default cost values for an owned car.
+   * @returns {Object} Default owned-car values.
+   */
   function defaultOwn(){
     return {
       kaufpreis: 9000, haltedauer: 6, restwert: 2000,
@@ -470,6 +518,10 @@
       verbrauch: 6.5, kraftstoffpreis: 2.20, stellplatz: 0, parkausweis: 30
     };
   }
+  /**
+   * Creates the default annual usage profile.
+   * @returns {Object} Default usage values.
+   */
   function defaultUsage(){
     return {
       jahreskm: 6000, kurzfahrten: 6, stundenprofahrt: 2,
@@ -477,11 +529,25 @@
       flex: 'teilweise', parkplatz: false
     };
   }
+  /**
+   * Creates a normalized tariff value object.
+   * @param {number} grundgebuehr - Monthly base fee in euros.
+   * @param {number} zeit - Hourly price in euros.
+   * @param {number} tag - Daily price in euros.
+   * @param {number} kmBis100 - Price per kilometer up to 100 kilometers.
+   * @param {number} kmAb100 - Price per kilometer after 100 kilometers.
+   * @param {number} anmeldegebuehr - One-time registration fee in euros.
+   * @returns {Object} Tariff values including the derived weekly price.
+   */
   function tariff(grundgebuehr, zeit, tag, kmBis100, kmAb100, anmeldegebuehr){
     var woche = tag * 5; // Näherung, falls kein separater Wochenpreis bekannt ist
     return { grundgebuehr: grundgebuehr, zeitpreis: zeit, tagespreis: tag, wochenpreis: woche,
              kmBis100: kmBis100, kmAb100: kmAb100, anmeldegebuehr: anmeldegebuehr };
   }
+  /**
+   * Creates the built-in provider, vehicle-class and tariff data.
+   * @returns {Array<Object>} Default provider data.
+   */
   function defaultProviders(){
     return [
       {
@@ -575,6 +641,11 @@
     ];
   }
 
+  /**
+   * Creates the default location estimate for one provider.
+   * @param {string} providerId - Provider identifier.
+   * @returns {Object} Station count and walking-time estimate.
+   */
   function defaultLocationForProvider(providerId){
     // Stationsbasierte Anbieter (Cambio, Flinkster) sind oft in mehr mittelgroßen Städten aktiv,
     // freefloating-Anbieter (Miles, Free2move) meist nur in ausgewählten Großstädten.
@@ -588,11 +659,20 @@
     };
     return presets[providerId] || { stationCount: 1, walkMinutes: 12 };
   }
+  /**
+   * Creates default location data for every built-in provider.
+   * @returns {Object} Address and provider-specific location values.
+   */
   function defaultLocation(){
     var byProvider = {};
     defaultProviders().forEach(function(p){ byProvider[p.id] = defaultLocationForProvider(p.id); });
     return { address: '', byProvider: byProvider };
   }
+  /**
+   * Returns location values for a provider and initializes missing values.
+   * @param {string} providerId - Provider identifier.
+   * @returns {Object} Mutable provider-specific location values.
+   */
   function getProviderLocation(providerId){
     if(!state.location.byProvider[providerId]){
       state.location.byProvider[providerId] = defaultLocationForProvider(providerId);
@@ -610,35 +690,61 @@
 
   var STORAGE_KEY = 'carsharing-rechner:v1';
   var saveTimer = null;
+  var stationSearchGeneration = 0;
 
   // Läuft die Datei innerhalb von claude.ai, nutzen wir die dortige Speicher-API (privat pro Nutzer/Konto).
   // Läuft sie standalone (heruntergeladen, im eigenen Browser geöffnet), gibt es kein window.storage mehr –
   // dann speichern wir stattdessen lokal im Browser (localStorage), damit Eingaben trotzdem erhalten bleiben.
-  var storageAdapter = (typeof window.storage !== 'undefined' && window.storage) ? {
-    get: function(key){ return window.storage.get(key, false); },
-    set: function(key, value){ return window.storage.set(key, value, false); }
-  } : {
-    get: async function(key){
-      var v = localStorage.getItem(key);
-      return v === null ? null : { key: key, value: v };
-    },
-    set: async function(key, value){
-      localStorage.setItem(key, value);
-      return { key: key, value: value };
-    }
-  };
+  var storageAdapter;
+  if(typeof window.storage !== 'undefined' && window.storage){
+    storageAdapter = {
+      get: function(key){ return window.storage.get(key, false); },
+      set: function(key, value){ return window.storage.set(key, value, false); }
+    };
+  } else {
+    storageAdapter = {
+      get: async function(key){
+        var value = localStorage.getItem(key);
+        if(value === null){
+          return null;
+        }
+        return { key: key, value: value };
+      },
+      set: async function(key, value){
+        localStorage.setItem(key, value);
+        return { key: key, value: value };
+      }
+    };
+  }
 
+  /**
+   * Debounces persistence of the current application state.
+   * @returns {void}
+   */
   function scheduleSave(){
     var el = document.getElementById('save-status');
     if(el) el.textContent = 'Speichern …';
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function(){
       storageAdapter.set(STORAGE_KEY, JSON.stringify(state))
-        .then(function(res){ if(el) el.textContent = res ? 'Gespeichert' : 'Speichern fehlgeschlagen'; })
+        .then(function(res){
+          if(!el){
+            return;
+          }
+          if(res){
+            el.textContent = 'Gespeichert';
+          } else {
+            el.textContent = 'Speichern fehlgeschlagen';
+          }
+        })
         .catch(function(){ if(el) el.textContent = 'Speichern fehlgeschlagen'; });
     }, 500);
   }
 
+  /**
+   * Loads persisted state and migrates older location and provider data.
+   * @returns {Promise<void>} Resolves after stored data has been applied or defaults retained.
+   */
   async function loadState(){
     try{
       var res = await storageAdapter.get(STORAGE_KEY);
@@ -678,54 +784,122 @@
 
   // ---------- Helpers ----------
 
+  /**
+   * Formats a number as whole euros for the German locale.
+   * @param {number} n - Monetary amount.
+   * @returns {string} Localized euro amount.
+   */
   function fmtEUR(n){
     if(!isFinite(n)) n = 0;
     return n.toLocaleString('de-DE', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' €';
   }
+  /**
+   * Formats a number as euros with two decimal places.
+   * @param {number} n - Monetary amount.
+   * @returns {string} Localized euro amount with cents.
+   */
   function fmtEURcents(n){
     if(!isFinite(n)) n = 0;
     return n.toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
   }
+  /**
+   * Finds a provider in the current state.
+   * @param {string} id - Provider identifier.
+   * @returns {Object|undefined} Matching provider when available.
+   */
   function findProvider(id){ return state.providers.find(function(p){ return p.id === id; }); }
+
+  /**
+   * Finds a vehicle class within a provider.
+   * @param {Object} provider - Provider containing vehicle classes.
+   * @param {string} id - Vehicle-class identifier.
+   * @returns {Object|undefined} Matching vehicle class when available.
+   */
   function findClass(provider, id){ return provider.classes.find(function(c){ return c.id === id; }); }
+
+  /**
+   * Finds a tariff within a vehicle class.
+   * @param {Object} cls - Vehicle class containing tariffs.
+   * @param {string} id - Tariff identifier.
+   * @returns {Object|undefined} Matching tariff when available.
+   */
   function findTariff(cls, id){ return cls.tariffs.find(function(t){ return t.id === id; }); }
+
+  /**
+   * Creates a compact identifier for a user-added data record.
+   * @param {string} prefix - Human-readable identifier prefix.
+   * @returns {string} Generated identifier.
+   */
   function uid(prefix){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
 
   // ---------- Calculation ----------
 
+  /**
+   * Calculates annual owned-car and selected carsharing costs.
+   * @returns {Object} Cost comparison and calculation metadata.
+   */
   function calculate(){
     var o = state.own, u = state.usage;
     var years = Math.max(o.haltedauer, 1);
     var jahreskm = Math.max(u.jahreskm, 0);
 
     var depreciation = Math.max(o.kaufpreis - o.restwert, 0) / years;
-    var stellplatzAnnual = u.parkplatz ? (o.stellplatz * 12) : 0;
-    var parkausweisAnnual = u.parkplatz ? 0 : o.parkausweis;
+    var stellplatzAnnual = 0;
+    var parkausweisAnnual = o.parkausweis;
+    if(u.parkplatz){
+      stellplatzAnnual = o.stellplatz * 12;
+      parkausweisAnnual = 0;
+    }
     var fixOwn = depreciation + o.wartung + o.versicherung + o.sonstiges + stellplatzAnnual + parkausweisAnnual;
     var fuelOwn = (jahreskm / 100) * o.verbrauch * o.kraftstoffpreis;
     var kmCostOwn = 0; // im Kraftstoffposten enthalten
     var totalOwn = fixOwn + fuelOwn;
 
     var provider = findProvider(state.selection.providerId) || state.providers[0];
-    var cls = provider ? findClass(provider, state.selection.classId) : null;
+    var cls = null;
+    if(provider){
+      cls = findClass(provider, state.selection.classId);
+    }
     if(provider && !cls) cls = provider.classes[0];
-    var t = cls ? (findTariff(cls, state.selection.tariffId) || cls.tariffs[0]) : null;
+    var selectedTariff = null;
+    if(cls){
+      selectedTariff = findTariff(cls, state.selection.tariffId) || cls.tariffs[0];
+    }
+
+    var ownCostPerKm = 0;
+    if(jahreskm > 0){
+      ownCostPerKm = totalOwn / jahreskm;
+    }
+    var providerName = '–';
+    if(provider){
+      providerName = provider.name;
+    }
 
     var result = {
-      own: { fix: fixOwn, fuel: fuelOwn, km: kmCostOwn, total: totalOwn, perKm: jahreskm > 0 ? totalOwn / jahreskm : 0 },
-      cambio: null, providerName: provider ? provider.name : '–'
+      own: { fix: fixOwn, fuel: fuelOwn, km: kmCostOwn, total: totalOwn, perKm: ownCostPerKm },
+      cambio: null, providerName: providerName
     };
 
-    if(t){
-      var v = t.v;
+    if(selectedTariff){
+      var v = selectedTariff.v;
       var multiTrips = Math.max(u.mehrtagesfahrten, 0);
       var multiDays = Math.max(u.tageprofahrt, 0);
       var multiKmEach = Math.max(u.kmprofahrt, 0);
 
+      /**
+       * Calculates the time charge for one multi-day booking.
+       * @param {number} days - Booking duration in days.
+       * @returns {number} Time charge in euros.
+       */
       function multiTimeCost(days){
         var weeks = Math.floor(days / 7), rem = days % 7;
         return weeks * v.wochenpreis + rem * v.tagespreis;
       }
+      /**
+       * Calculates the tiered kilometer charge for one booking.
+       * @param {number} km - Distance of the booking in kilometers.
+       * @returns {number} Kilometer charge in euros.
+       */
       function kmCost(km){
         if(km <= 100) return km * v.kmBis100;
         return 100 * v.kmBis100 + (km - 100) * v.kmAb100;
@@ -736,8 +910,13 @@
       var shortTimeCostTotal = Math.min(shortHours * v.zeitpreis, v.tagespreis) * shortTripsPerYear;
 
       var multiTimeCostTotal = multiTrips * multiTimeCost(multiDays);
-      var multiKmTotal = multiTrips * multiKmEach;
-      var multiKmCostTotal = multiTrips * kmCost(multiKmEach);
+      var plannedMultiKmTotal = multiTrips * multiKmEach;
+      var multiKmTotal = Math.min(plannedMultiKmTotal, jahreskm);
+      var calculatedMultiKmEach = 0;
+      if(multiTrips > 0){
+        calculatedMultiKmEach = multiKmTotal / multiTrips;
+      }
+      var multiKmCostTotal = multiTrips * kmCost(calculatedMultiKmEach);
 
       var shortKmTotal = Math.max(jahreskm - multiKmTotal, 0);
       var shortKmCostTotal = shortKmTotal * v.kmBis100;
@@ -749,13 +928,18 @@
       var timeCambio = shortTimeCostTotal + multiTimeCostTotal;
       var kmCambio = shortKmCostTotal + multiKmCostTotal;
       var totalCambio = fixCambio + timeCambio + kmCambio;
+      var providerCostPerKm = 0;
+      if(jahreskm > 0){
+        providerCostPerKm = totalCambio / jahreskm;
+      }
 
       result.cambio = {
         fix: fixCambio, fuel: timeCambio, km: kmCambio, total: totalCambio,
-        perKm: jahreskm > 0 ? totalCambio / jahreskm : 0,
-        tariffName: t.name, className: cls.name,
+        perKm: providerCostPerKm,
+        tariffName: selectedTariff.name, className: cls.name,
         multiTrips: multiTrips, multiKm: multiKmTotal,
-        multiCost: multiTimeCostTotal + multiKmCostTotal
+        multiCost: multiTimeCostTotal + multiKmCostTotal,
+        mileageAdjusted: plannedMultiKmTotal > jahreskm
       };
     }
 
@@ -764,6 +948,10 @@
 
   // ---------- Rendering: Rechner tab ----------
 
+  /**
+   * Copies owned-car state into its form controls.
+   * @returns {void}
+   */
   function fillOwnInputs(){
     var o = state.own;
     document.getElementById('own_kaufpreis').value = o.kaufpreis;
@@ -777,6 +965,10 @@
     document.getElementById('own_stellplatz').value = o.stellplatz;
     document.getElementById('own_parkausweis').value = o.parkausweis;
   }
+  /**
+   * Copies usage state into its form controls and updates dependent controls.
+   * @returns {void}
+   */
   function fillUsageInputs(){
     var u = state.usage;
     document.getElementById('use_jahreskm').value = u.jahreskm;
@@ -790,19 +982,48 @@
     for(var i=0;i<radios.length;i++){ radios[i].checked = (radios[i].value === u.flex); }
     updateStellplatzState(u.parkplatz);
   }
+
+  /**
+   * Shows whether the detailed multi-day mileage exceeds the annual mileage.
+   * @param {Object} result - Current calculation result.
+   * @returns {void}
+   */
+  function renderUsageValidation(result){
+    var validation = document.getElementById('usage-km-validation');
+    validation.textContent = '';
+    if(result.cambio && result.cambio.mileageAdjusted){
+      validation.textContent = 'Die Mehrtagesfahrten ergeben mehr Kilometer als die gesamte Fahrleistung. Für die Berechnung werden die Mehrtageskilometer auf die jährliche Fahrleistung begrenzt.';
+    }
+  }
+
+  /**
+   * Switches parking-related inputs and help text for the selected parking mode.
+   * @param {boolean} active - Whether a rented guaranteed space is required.
+   * @returns {void}
+   */
   function updateStellplatzState(active){
     var stellplatzInput = document.getElementById('own_stellplatz');
     var parkausweisInput = document.getElementById('own_parkausweis');
     var hint = document.getElementById('stellplatz-hint');
     stellplatzInput.disabled = !active;
-    stellplatzInput.style.opacity = active ? '1' : '0.45';
+    stellplatzInput.style.opacity = '0.45';
+    if(active){
+      stellplatzInput.style.opacity = '1';
+    }
     parkausweisInput.disabled = active;
-    parkausweisInput.style.opacity = active ? '0.45' : '1';
-    hint.textContent = active
-      ? 'Die Stellplatzmiete wird zu den jährlichen Fixkosten des eigenen Autos addiert.'
-      : 'Ohne garantierten Platz gehen wir von Parken auf öffentlichem Grund aus \u2013 dafür zählt stattdessen der Anwohnerparkausweis mit. Zeitaufwand und Stress der Parkplatzsuche sind hier nicht eingepreist, siehe Hinweis rechts.';
+    parkausweisInput.style.opacity = '1';
+    if(active){
+      parkausweisInput.style.opacity = '0.45';
+      hint.textContent = 'Die Stellplatzmiete wird zu den jährlichen Fixkosten des eigenen Autos addiert.';
+    } else {
+      hint.textContent = 'Ohne garantierten Platz gehen wir von Parken auf öffentlichem Grund aus \u2013 dafür zählt stattdessen der Anwohnerparkausweis mit. Zeitaufwand und Stress der Parkplatzsuche sind hier nicht eingepreist, siehe Hinweis rechts.';
+    }
   }
 
+  /**
+   * Copies location values for the selected provider into the form.
+   * @returns {void}
+   */
   function fillLocationInputs(){
     document.getElementById('loc_address').value = state.location.address;
     var provider = findProvider(state.selection.providerId) || state.providers[0];
@@ -812,6 +1033,10 @@
     document.getElementById('loc-provider-label-count').textContent = 'für ' + provider.name;
     document.getElementById('loc-provider-label-walk').textContent = 'für ' + provider.name + ', Min.';
   }
+  /**
+   * Copies address and availability inputs into provider-specific state.
+   * @returns {void}
+   */
   function readLocationFromInputs(){
     state.location.address = document.getElementById('loc_address').value;
     var provider = findProvider(state.selection.providerId) || state.providers[0];
@@ -821,6 +1046,14 @@
     };
   }
 
+  /**
+   * Calculates the straight-line distance between two geographic coordinates.
+   * @param {number} lat1 - Latitude of the first coordinate.
+   * @param {number} lon1 - Longitude of the first coordinate.
+   * @param {number} lat2 - Latitude of the second coordinate.
+   * @param {number} lon2 - Longitude of the second coordinate.
+   * @returns {number} Distance in meters.
+   */
   function haversineMeters(lat1, lon1, lat2, lon2){
     var R = 6371000, toRad = function(x){ return x * Math.PI / 180; };
     var dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
@@ -829,102 +1062,159 @@
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
+  /**
+   * Checks whether an asynchronous station search still belongs to the visible provider.
+   * @param {number} generation - Sequence number captured when the search started.
+   * @param {string} providerId - Provider selected when the search started.
+   * @returns {boolean} True while the result may still update the current view.
+   */
+  function isCurrentStationSearch(generation, providerId){
+    return generation === stationSearchGeneration && providerId === state.selection.providerId;
+  }
+
+  /**
+   * Geocodes the entered address and looks up verified stations for the selected provider.
+   * @returns {Promise<void>} Resolves after the search result or error has been displayed.
+   */
   async function searchStations(){
     var address = document.getElementById('loc_address').value.trim();
     var statusEl = document.getElementById('loc_status');
     var btn = document.getElementById('loc-search-btn');
     var provider = findProvider(state.selection.providerId) || state.providers[0];
-    if(!address){ statusEl.textContent = 'Bitte zuerst eine Adresse eingeben.'; return; }
+    if(!address){
+      statusEl.textContent = 'Bitte zuerst eine Adresse eingeben.';
+      return;
+    }
 
+    stationSearchGeneration += 1;
+    var currentGeneration = stationSearchGeneration;
+    var providerId = provider.id;
+    var geoTimer = null;
+    var opTimer = null;
     btn.disabled = true;
     statusEl.textContent = 'Adresse wird gesucht …';
 
     try{
       var geoCtrl = new AbortController();
-      var geoTimer = setTimeout(function(){ geoCtrl.abort(); }, 8000);
+      geoTimer = setTimeout(function(){ geoCtrl.abort(); }, 8000);
       var geoRes = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(address), { signal: geoCtrl.signal });
       clearTimeout(geoTimer);
-      if(!geoRes.ok) throw new Error('geocode-error');
+      geoTimer = null;
+      if(!isCurrentStationSearch(currentGeneration, providerId)){
+        return;
+      }
+      if(!geoRes.ok){
+        throw new Error('geocode-error');
+      }
       var geoData = await geoRes.json();
       if(!geoData.length){
         statusEl.textContent = 'Adresse nicht gefunden. Bitte Anzahl und Gehzeit unten manuell eintragen.';
-        btn.disabled = false; return;
+        return;
       }
-      var lat = parseFloat(geoData[0].lat), lon = parseFloat(geoData[0].lon);
+      var lat = parseFloat(geoData[0].lat);
+      var lon = parseFloat(geoData[0].lon);
       statusEl.textContent = 'Stationen von ' + provider.name + ' in der Nähe werden gesucht …';
 
       var radius = 1500;
       var query = '[out:json][timeout:15];node(around:' + radius + ',' + lat + ',' + lon + ')["amenity"="car_sharing"];out body;';
       var opCtrl = new AbortController();
-      var opTimer = setTimeout(function(){ opCtrl.abort(); }, 12000);
+      opTimer = setTimeout(function(){ opCtrl.abort(); }, 12000);
       var opRes = await fetch('https://overpass-api.de/api/interpreter', {
         method: 'POST', body: 'data=' + encodeURIComponent(query), signal: opCtrl.signal
       });
       clearTimeout(opTimer);
-      if(!opRes.ok) throw new Error('overpass-error');
+      opTimer = null;
+      if(!isCurrentStationSearch(currentGeneration, providerId)){
+        return;
+      }
+      if(!opRes.ok){
+        throw new Error('overpass-error');
+      }
       var opData = await opRes.json();
       var allStations = opData.elements || [];
 
-      // Nur Stationen berücksichtigen, deren Betreiber/Marke/Netzwerk-Tag zum gewählten Anbieter passt
       var needle = provider.name.toLowerCase().replace('(vormals share now)', '').trim();
       var aliasMap = { free2move: ['free2move', 'share now', 'sharenow', 'car2go'], sixtshare: ['sixt'] };
       var needles = aliasMap[provider.id] || [needle];
+
+      /**
+       * Checks whether OpenStreetMap tags identify the selected provider.
+       * @param {Object|undefined} tags - Tags attached to an OpenStreetMap station.
+       * @returns {boolean} True when a provider alias occurs in the station tags.
+       */
       function matchesProvider(tags){
-        if(!tags) return false;
+        if(!tags){
+          return false;
+        }
         var haystack = [tags.operator, tags.brand, tags.network, tags.name].filter(Boolean).join(' ').toLowerCase();
         return needles.some(function(n){ return haystack.indexOf(n) !== -1; });
       }
-      var matched = allStations.filter(function(s){ return matchesProvider(s.tags); });
-      var usedGeneric = false;
-      var stations = matched;
-      if(!matched.length && allStations.length){
-        // Kein Betreiber-Tag gefunden – OSM verzeichnet Carsharing-Stationen oft ohne Marke.
-        // Zeige die allgemeine Anzahl, aber sag klar dazu, dass sie nicht anbietergeprüft ist.
-        stations = allStations;
-        usedGeneric = true;
+
+      var stations = allStations.filter(function(s){ return matchesProvider(s.tags); });
+      if(!stations.length && allStations.length){
+        statusEl.textContent = allStations.length + ' Carsharing-Station(en) allgemein gefunden. Weil der Betreiber in OpenStreetMap nicht eindeutig ' + provider.name + ' zugeordnet ist, wurden die Anbieterwerte nicht verändert.';
+        return;
       }
 
+      state.location.address = address;
       if(!stations.length){
-        document.getElementById('loc_count').value = 0;
-        statusEl.textContent = 'Keine Carsharing-Station im Umkreis von 1,5 km in OpenStreetMap verzeichnet. Falls dir Stationen von ' + provider.name + ' bekannt sind, trag sie unten manuell ein.';
+        state.location.byProvider[providerId] = { stationCount: 0, walkMinutes: 0 };
+        fillLocationInputs();
+        statusEl.textContent = 'Keine Station von ' + provider.name + ' im Umkreis von 1,5 km in OpenStreetMap gefunden. Falls dir Stationen bekannt sind, trag sie unten manuell ein.';
       } else {
         var minDist = Infinity;
-        stations.forEach(function(s){
-          var d = haversineMeters(lat, lon, s.lat, s.lon);
-          if(d < minDist) minDist = d;
+        stations.forEach(function(station){
+          var distance = haversineMeters(lat, lon, station.lat, station.lon);
+          if(distance < minDist){
+            minDist = distance;
+          }
         });
         var walkMin = Math.max(1, Math.round(minDist / 80));
-        document.getElementById('loc_count').value = stations.length;
-        document.getElementById('loc_walk').value = walkMin;
-        statusEl.textContent = stations.length + (usedGeneric ? ' Carsharing-Station(en) allgemein' : ' Station(en) von ' + provider.name) +
-          ' im Umkreis von 1,5 km gefunden · nächste ca. ' + walkMin + ' Gehminuten entfernt.' +
-          (usedGeneric ? ' (Betreiber in OpenStreetMap nicht vermerkt, ggf. anderer Anbieter.)' : '');
+        state.location.byProvider[providerId] = { stationCount: stations.length, walkMinutes: walkMin };
+        fillLocationInputs();
+        statusEl.textContent = stations.length + ' Station(en) von ' + provider.name + ' im Umkreis von 1,5 km gefunden · nächste ca. ' + walkMin + ' Gehminuten entfernt.';
       }
-      readLocationFromInputs(); render(); scheduleSave();
+      render();
+      scheduleSave();
     }catch(e){
-      statusEl.textContent = 'Automatische Suche gerade nicht möglich (Netzwerkzugriff in dieser Umgebung eingeschränkt). Bitte Anzahl und Gehzeit für ' + provider.name + ' unten manuell eintragen.';
+      if(isCurrentStationSearch(currentGeneration, providerId)){
+        statusEl.textContent = 'Automatische Suche gerade nicht möglich. Bitte Anzahl und Gehzeit für ' + provider.name + ' unten manuell eintragen.';
+      }
     }finally{
+      if(geoTimer !== null){
+        clearTimeout(geoTimer);
+      }
+      if(opTimer !== null){
+        clearTimeout(opTimer);
+      }
       btn.disabled = false;
     }
   }
 
+  /**
+   * Rebuilds provider, vehicle-class and tariff selects from current state.
+   * @returns {void}
+   */
   function populateSelects(){
     var provSel = document.getElementById('sel_provider');
     var classSel = document.getElementById('sel_class');
     var tariffSel = document.getElementById('sel_tariff');
 
-    provSel.innerHTML = '';
+    provSel.replaceChildren();
     state.providers.forEach(function(p){
       var opt = document.createElement('option'); opt.value = p.id; opt.textContent = p.name;
       provSel.appendChild(opt);
     });
-    document.getElementById('provider-select-row').style.display = state.providers.length > 1 ? 'grid' : 'none';
+    document.getElementById('provider-select-row').style.display = 'none';
+    if(state.providers.length > 1){
+      document.getElementById('provider-select-row').style.display = 'grid';
+    }
 
     if(!findProvider(state.selection.providerId)) state.selection.providerId = state.providers[0].id;
     provSel.value = state.selection.providerId;
 
     var provider = findProvider(state.selection.providerId);
-    classSel.innerHTML = '';
+    classSel.replaceChildren();
     provider.classes.forEach(function(c){
       var opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name;
       classSel.appendChild(opt);
@@ -933,7 +1223,7 @@
     classSel.value = state.selection.classId;
 
     var cls = findClass(provider, state.selection.classId);
-    tariffSel.innerHTML = '';
+    tariffSel.replaceChildren();
     cls.tariffs.forEach(function(t){
       var opt = document.createElement('option'); opt.value = t.id; opt.textContent = t.name;
       tariffSel.appendChild(opt);
@@ -942,6 +1232,11 @@
     tariffSel.value = state.selection.tariffId;
   }
 
+  /**
+   * Derives explanatory cards from costs, availability and usage preferences.
+   * @param {Object} r - Current cost calculation result.
+   * @returns {Array<Object>} Insight cards with tone, title and text.
+   */
   function computeInsights(r){
     var loc = getProviderLocation(state.selection.providerId), u = state.usage;
     var cards = [];
@@ -959,16 +1254,21 @@
     } else if(loc.stationCount >= 1 && loc.walkMinutes <= 20){
       cards.push({ tone: 'mid', title: 'Eingeschränkt flexibel',
         text: 'Nur ' + loc.stationCount + ' Station(en) in der Nähe, rund ' + loc.walkMinutes + ' Gehminuten entfernt. Für spontane Fahrten solltest du etwas Vorlauf einplanen.' + flexHint });
+    } else if(loc.stationCount === 0){
+      cards.push({ tone: 'bad', title: 'Keine Station in der Nähe',
+        text: 'Keine Station des ausgewählten Anbieters im angegebenen Umkreis gefunden.' + flexHint });
     } else {
       cards.push({ tone: 'bad', title: 'Eingeschränkt, weil der nächste Standort zu weit ist',
-        text: (loc.stationCount === 0 ? 'Keine Station im angegebenen Umkreis gefunden.' : loc.stationCount + ' Station(en) in der Nähe.') +
-              ' Bei rund ' + loc.walkMinutes + ' Gehminuten bis zur nächsten Station ist Carsharing für spontane Fahrten wenig praktikabel.' + flexHint });
+        text: loc.stationCount + ' Station(en) in der Nähe. Bei rund ' + loc.walkMinutes + ' Gehminuten bis zur nächsten Station ist Carsharing für spontane Fahrten wenig praktikabel.' + flexHint });
     }
 
     // Wochenend-/Mehrtagesfahrten: Kostenanteil vs. Kilometeranteil
     if(r.cambio && u.mehrtagesfahrten > 0 && u.jahreskm > 0){
       var kmShare = r.cambio.multiKm / u.jahreskm;
-      var costShare = r.cambio.total > 0 ? r.cambio.multiCost / r.cambio.total : 0;
+      var costShare = 0;
+      if(r.cambio.total > 0){
+        costShare = r.cambio.multiCost / r.cambio.total;
+      }
       var kmPct = Math.round(kmShare * 100), costPct = Math.round(costShare * 100);
       if(costShare - kmShare > 0.15 || costShare > 0.4){
         cards.push({ tone: 'mid', title: 'Wochenend- und Mehrtagesfahrten sind teuer',
@@ -982,23 +1282,43 @@
 
     // Parkplatzsuche ohne garantierten Platz: Nachteil beim eigenen Auto benennen
     if(!u.parkplatz){
+      var parkingPermitText = '';
+      if(state.own.parkausweis > 0){
+        parkingPermitText = 'Der Anwohnerparkausweis (' + fmtEUR(state.own.parkausweis) + '/Jahr) ist bereits in den Autokosten eingerechnet, der Zeitaufwand selbst aber nicht. ';
+      }
       cards.push({ tone: 'mid', title: 'Parkplatzsuche als Nachteil beim eigenen Auto',
         text: 'Ohne garantierten Platz kostet die tägliche Parkplatzsuche auf öffentlichem Grund Zeit und Nerven, gerade abends in dicht bebauten Vierteln. ' +
-              (state.own.parkausweis > 0 ? 'Der Anwohnerparkausweis (' + fmtEUR(state.own.parkausweis) + '/Jahr) ist bereits in den Autokosten eingerechnet, der Zeitaufwand selbst aber nicht. ' : '') +
+              parkingPermitText +
               'Bei ' + r.providerName + ' entfällt das für dich: Der Anbieter kümmert sich um den Abstellplatz, du musst selbst keinen Parkplatz suchen.' });
     }
 
     return cards;
   }
 
+  /**
+   * Renders insight cards with safe text nodes cloned from a template.
+   * @param {Object} r - Current cost calculation result.
+   * @returns {void}
+   */
   function renderInsights(r){
     var el = document.getElementById('insights');
     var cards = computeInsights(r);
-    el.innerHTML = cards.map(function(c){
-      return '<div class="insight-card tone-' + c.tone + '"><span class="insight-title">' + c.title + '</span>' + c.text + '</div>';
-    }).join('');
+    var template = document.getElementById('insight-card-template');
+    var fragment = document.createDocumentFragment();
+    cards.forEach(function(card){
+      var element = template.content.firstElementChild.cloneNode(true);
+      element.classList.add('tone-' + card.tone);
+      element.querySelector('.insight-title').textContent = card.title;
+      element.querySelector('.insight-text').textContent = card.text;
+      fragment.appendChild(element);
+    });
+    el.replaceChildren(fragment);
   }
 
+  /**
+   * Recalculates and renders the complete comparison view.
+   * @returns {void}
+   */
   function render(){
     populateSelects();
     var r = calculate();
@@ -1008,17 +1328,25 @@
 
     if(r.cambio){
       var diff = r.own.total - r.cambio.total;
-      var cheaper = diff >= 0 ? r.providerName : 'das eigene Auto';
       headline.textContent = fmtEUR(Math.abs(diff)) + ' / Jahr';
-      headline.className = 'headline-figure ' + (diff >= 0 ? 'win' : 'lose');
-      sub.textContent = (diff >= 0 ? cheaper + ' spart dir das gegenüber dem eigenen Auto.' : 'Das eigene Auto ist günstiger als ' + r.providerName + '.');
+      if(diff >= 0){
+        headline.className = 'headline-figure win';
+        sub.textContent = r.providerName + ' spart dir das gegenüber dem eigenen Auto.';
+      } else {
+        headline.className = 'headline-figure lose';
+        sub.textContent = 'Das eigene Auto ist günstiger als ' + r.providerName + '.';
+      }
     } else {
       headline.textContent = fmtEUR(r.own.total) + ' / Jahr';
       headline.className = 'headline-figure';
       sub.textContent = 'Lege rechts einen Carsharing-Tarif an, um zu vergleichen.';
     }
 
-    var maxVal = Math.max(r.own.total, r.cambio ? r.cambio.total : 0, 1);
+    var providerTotal = 0;
+    if(r.cambio){
+      providerTotal = r.cambio.total;
+    }
+    var maxVal = Math.max(r.own.total, providerTotal, 1);
     document.getElementById('bar-own-value').textContent = fmtEUR(r.own.total);
     document.getElementById('bar-own').style.width = (r.own.total / maxVal * 100) + '%';
 
@@ -1037,8 +1365,7 @@
 
     document.getElementById('row-fix-own').textContent = fmtEUR(r.own.fix);
     document.getElementById('row-fuel-own').textContent = fmtEUR(r.own.fuel);
-    document.getElementById('row-km-own').textContent = '&ndash;';
-    document.getElementById('row-km-own').innerHTML = 'in Kraftstoff enthalten';
+    document.getElementById('row-km-own').textContent = 'in Kraftstoff enthalten';
     document.getElementById('row-perkm-own').textContent = fmtEURcents(r.own.perKm);
     document.getElementById('row-total-own').textContent = fmtEUR(r.own.total);
 
@@ -1054,9 +1381,14 @@
       });
     }
 
+    renderUsageValidation(r);
     renderInsights(r);
   }
 
+  /**
+   * Copies owned-car form values into application state.
+   * @returns {void}
+   */
   function readOwnFromInputs(){
     state.own = {
       kaufpreis: +document.getElementById('own_kaufpreis').value || 0,
@@ -1071,6 +1403,10 @@
       parkausweis: +document.getElementById('own_parkausweis').value || 0
     };
   }
+  /**
+   * Copies usage form values into application state.
+   * @returns {void}
+   */
   function readUsageFromInputs(){
     var flex = 'teilweise';
     var radios = document.getElementsByName('flex');
@@ -1087,6 +1423,10 @@
     };
   }
 
+  /**
+   * Binds comparison-form controls to state, rendering and persistence.
+   * @returns {void}
+   */
   function bindRechnerEvents(){
     var ownIds = ['own_kaufpreis','own_haltedauer','own_restwert','own_wartung','own_versicherung','own_sonstiges','own_verbrauch','own_kraftstoffpreis','own_stellplatz','own_parkausweis'];
     var useIds = ['use_jahreskm','use_kurzfahrten','use_stundenprofahrt','use_mehrtagesfahrten','use_tageprofahrt','use_kmprofahrt'];
@@ -1103,6 +1443,7 @@
     document.getElementById('use_parkplatz').addEventListener('change', function(){ readUsageFromInputs(); render(); scheduleSave(); });
 
     document.getElementById('sel_provider').addEventListener('change', function(e){
+      stationSearchGeneration += 1;
       state.selection.providerId = e.target.value;
       var p = findProvider(state.selection.providerId);
       state.selection.classId = p.classes[0].id;
@@ -1137,58 +1478,45 @@
 
   // ---------- Rendering: Tarife tab ----------
 
+  /**
+   * Renders editable providers and tariff rows from reusable templates.
+   * @returns {void}
+   */
   function renderProviders(){
     var list = document.getElementById('providers-list');
-    list.innerHTML = '';
+    var providerTemplate = document.getElementById('provider-block-template');
+    var tariffRowTemplate = document.getElementById('tariff-row-template');
+    var providerFragment = document.createDocumentFragment();
     state.providers.forEach(function(provider){
-      var block = document.createElement('div');
-      block.className = 'provider-block';
-
-      var head = document.createElement('div');
-      head.className = 'provider-head';
-      var nameInput = document.createElement('input');
-      nameInput.type = 'text'; nameInput.value = provider.name;
+      var block = providerTemplate.content.firstElementChild.cloneNode(true);
+      var nameInput = block.querySelector('.provider-name');
+      nameInput.value = provider.name;
       nameInput.addEventListener('input', function(){ provider.name = nameInput.value; scheduleSave(); render(); });
-      head.appendChild(nameInput);
 
+      var removeBtn = block.querySelector('.remove-btn');
       if(state.providers.length > 1){
-        var removeBtn = document.createElement('button');
-        removeBtn.className = 'remove-btn'; removeBtn.textContent = 'Anbieter entfernen';
         removeBtn.addEventListener('click', function(){
           state.providers = state.providers.filter(function(p){ return p.id !== provider.id; });
           renderProviders(); render(); scheduleSave();
         });
-        head.appendChild(removeBtn);
+      } else {
+        removeBtn.remove();
       }
-      block.appendChild(head);
 
-      var table = document.createElement('table');
-      table.className = 'tariff-table';
-      var thead = document.createElement('thead');
-      thead.innerHTML = '<tr>' +
-        '<th>Klasse</th><th>Tarif</th>' +
-        '<th>Grundgeb. €/Mon.</th><th>Zeitpreis €/Std.</th><th>Tagespreis €</th>' +
-        '<th>km bis 100 €</th><th>km ab 101 €</th><th>Anmeldegeb. €</th>' +
-      '</tr>';
-      table.appendChild(thead);
-      var tbody = document.createElement('tbody');
+      var tbody = block.querySelector('tbody');
 
       provider.classes.forEach(function(cls){
         cls.tariffs.forEach(function(t, idx){
-          var tr = document.createElement('tr');
-          var classCell = idx === 0 ? cls.name : '';
-          tr.innerHTML =
-            '<td>' + classCell + '</td>' +
-            '<td>' + t.name + '</td>' +
-            tariffInputCell(t.v, 'grundgebuehr') +
-            tariffInputCell(t.v, 'zeitpreis') +
-            tariffInputCell(t.v, 'tagespreis') +
-            tariffInputCell(t.v, 'kmBis100') +
-            tariffInputCell(t.v, 'kmAb100') +
-            tariffInputCell(t.v, 'anmeldegebuehr');
+          var tr = tariffRowTemplate.content.firstElementChild.cloneNode(true);
+          if(idx === 0){
+            tr.querySelector('[data-cell="class"]').textContent = cls.name;
+          }
+          tr.querySelector('[data-cell="tariff"]').textContent = t.name;
           tbody.appendChild(tr);
 
           Array.prototype.forEach.call(tr.querySelectorAll('input'), function(inp){
+            var inputField = inp.getAttribute('data-field');
+            inp.value = t.v[inputField];
             inp.addEventListener('input', function(){
               var field = inp.getAttribute('data-field');
               t.v[field] = +inp.value || 0;
@@ -1199,15 +1527,9 @@
         });
       });
 
-      table.appendChild(tbody);
-      block.appendChild(table);
-      list.appendChild(block);
+      providerFragment.appendChild(block);
     });
-  }
-
-  function tariffInputCell(obj, field){
-    var step = (field === 'kmBis100' || field === 'kmAb100') ? '0.01' : (field === 'zeitpreis' ? '0.05' : '1');
-    return '<td><input type="number" step="' + step + '" min="0" value="' + obj[field] + '" data-field="' + field + '"></td>';
+    list.replaceChildren(providerFragment);
   }
 
   document.getElementById('add-provider-btn').addEventListener('click', function(){
@@ -1225,6 +1547,10 @@
 
   // ---------- Tabs ----------
 
+  /**
+   * Binds the navigation buttons for the calculator and tariff editor.
+   * @returns {void}
+   */
   function bindTabs(){
     var buttons = document.querySelectorAll('.tab-btn');
     buttons.forEach(function(btn){
@@ -1232,14 +1558,23 @@
         buttons.forEach(function(b){ b.classList.remove('active'); });
         btn.classList.add('active');
         var tab = btn.getAttribute('data-tab');
-        document.getElementById('tab-rechner').style.display = tab === 'rechner' ? '' : 'none';
-        document.getElementById('tab-tarife').style.display = tab === 'tarife' ? '' : 'none';
+        document.getElementById('tab-rechner').style.display = 'none';
+        document.getElementById('tab-tarife').style.display = 'none';
+        if(tab === 'rechner'){
+          document.getElementById('tab-rechner').style.display = '';
+        } else if(tab === 'tarife'){
+          document.getElementById('tab-tarife').style.display = '';
+        }
       });
     });
   }
 
   // ---------- Init ----------
 
+  /**
+   * Loads persisted state, initializes controls and performs the first render.
+   * @returns {Promise<void>} Resolves when initialization has completed.
+   */
   async function init(){
     await loadState();
     fillOwnInputs();
