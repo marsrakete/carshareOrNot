@@ -12,13 +12,17 @@
   var tariff = providerData.tariff;
   var defaultProviders = providerData.defaultProviders;
   var normalizeTariffData = providerData.normalizeTariffData;
+  var recommendationData = window.CarshareRecommendations;
+  var MODE_MANUAL = recommendationData.MODE_MANUAL;
+  var MODE_SINGLE = recommendationData.MODE_SINGLE;
+  var MODE_MIX = recommendationData.MODE_MIX;
   /**
    * Creates the default location estimate for one provider.
    * @param {string} providerId - Provider identifier.
    * @returns {Object} Station count and walking-time estimate.
    */
   function defaultLocationForProvider(providerId){
-    return { stationCount: null, walkMinutes: null, source: 'unknown' };
+    return { stationCount: null, walkMinutes: null, serviceAvailable: null, source: 'unknown' };
   }
   /**
    * Creates default location data for every built-in provider.
@@ -37,7 +41,7 @@
    */
   function normalizeLocationEntry(entry){
     if(!isObject(entry) || !isNullableNumber(entry.stationCount) || !isNullableNumber(entry.walkMinutes)){
-      return { stationCount: null, walkMinutes: null, source: 'unknown' };
+      return { stationCount: null, walkMinutes: null, serviceAvailable: null, source: 'unknown' };
     }
     var source = entry.source;
     if(source !== 'manual' && source !== 'search' && source !== 'unknown'){
@@ -47,7 +51,11 @@
         source = 'legacy';
       }
     }
-    return { stationCount: entry.stationCount, walkMinutes: entry.walkMinutes, source: source };
+    var serviceAvailable = null;
+    if(typeof entry.serviceAvailable === 'boolean'){
+      serviceAvailable = entry.serviceAvailable;
+    }
+    return { stationCount: entry.stationCount, walkMinutes: entry.walkMinutes, serviceAvailable: serviceAvailable, source: source };
   }
   /**
    * Returns location values for a provider and initializes missing values.
@@ -66,8 +74,65 @@
     usage: defaultUsage(),
     location: defaultLocation(),
     providers: defaultProviders(),
-    selection: { providerId: 'cambio', classId: 'klein', tariffId: 'aktiv' }
+    selection: { providerId: 'cambio', classId: 'klein', tariffId: 'aktiv', recommendationMode: MODE_MANUAL }
   };
+
+  var usageScenarios = [
+    {
+      id: 'family-commute', title: 'Familie, Pendler, 2 Kleinkinder', iconId: 'scenario-icon-family',
+      summary: '12.000 km · 5 Kita-Tage/Woche · 2 Urlaube',
+      values: { jahreskm: 12000, kurzfahrten: 20, stundenprofahrt: 1.5, bringtageprowoche: 5, bringwochenprojahr: 46, bringkmprotag: 16, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 60, kindersitz: true, tagesausfluege: 8, stundenproausflug: 8, kmproausflug: 100, mehrtagesfahrten: 4, tageprofahrt: 3, kmprofahrt: 300, urlaubsfahrten: 2, tageprourlaub: 7, kmprourlaub: 800, flex: 'teilweise', freefloatingFit: 'auto' }
+    },
+    {
+      id: 'family-homeoffice', title: 'Familie, kein Pendeln, 2 Kleinkinder', iconId: 'scenario-icon-home',
+      summary: '7.500 km · 5 Kita-Tage/Woche · mehr Ausflüge',
+      values: { jahreskm: 7500, kurzfahrten: 8, stundenprofahrt: 2, bringtageprowoche: 5, bringwochenprojahr: 46, bringkmprotag: 16, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 60, kindersitz: true, tagesausfluege: 12, stundenproausflug: 8, kmproausflug: 100, mehrtagesfahrten: 5, tageprofahrt: 3, kmprofahrt: 250, urlaubsfahrten: 2, tageprourlaub: 7, kmprourlaub: 700, flex: 'teilweise', freefloatingFit: 'auto' }
+    },
+    {
+      id: 'care-weekly', title: 'Pflegefahrten wöchentlich', iconId: 'scenario-icon-care',
+      summary: '6.000 km · 2 flexible Fahrten/Woche · bis 50 km',
+      values: { jahreskm: 6000, kurzfahrten: 9, stundenprofahrt: 3, bringtageprowoche: 0, bringwochenprojahr: 40, bringkmprotag: 12, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 100, kindersitz: false, tagesausfluege: 0, stundenproausflug: 8, kmproausflug: 120, mehrtagesfahrten: 0, tageprofahrt: 3, kmprofahrt: 250, urlaubsfahrten: 0, tageprourlaub: 7, kmprourlaub: 900, flex: 'spontan', freefloatingFit: 'supplement' }
+    },
+    {
+      id: 'single-commute', title: 'Single & Pendeln', iconId: 'scenario-icon-commute',
+      summary: '10.000 km · 20 Arbeitstage/Monat · flexibel',
+      values: { jahreskm: 10000, kurzfahrten: 20, stundenprofahrt: 9, bringtageprowoche: 0, bringwochenprojahr: 40, bringkmprotag: 12, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 100, kindersitz: false, tagesausfluege: 3, stundenproausflug: 8, kmproausflug: 100, mehrtagesfahrten: 2, tageprofahrt: 2, kmprofahrt: 250, urlaubsfahrten: 1, tageprourlaub: 7, kmprourlaub: 700, flex: 'teilweise', freefloatingFit: 'suitable' }
+    },
+    {
+      id: 'care-frequent', title: 'Pflegefahrten häufig', iconId: 'scenario-icon-care',
+      summary: '13.000 km · werktäglich flexibel · bis 50 km',
+      values: { jahreskm: 13000, kurzfahrten: 22, stundenprofahrt: 3, bringtageprowoche: 0, bringwochenprojahr: 40, bringkmprotag: 12, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 100, kindersitz: false, tagesausfluege: 0, stundenproausflug: 8, kmproausflug: 120, mehrtagesfahrten: 0, tageprofahrt: 3, kmprofahrt: 250, urlaubsfahrten: 0, tageprourlaub: 7, kmprourlaub: 900, flex: 'spontan', freefloatingFit: 'unsuitable' }
+    },
+    {
+      id: 'single-parent-weekend', title: 'Alleinerziehend & Wochenendbeziehung', iconId: 'scenario-icon-family',
+      summary: '7.000 km · 40 Wochenenden · je 100 km',
+      values: { jahreskm: 7000, kurzfahrten: 6, stundenprofahrt: 2, bringtageprowoche: 2, bringwochenprojahr: 40, bringkmprotag: 12, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 50, kindersitz: true, tagesausfluege: 2, stundenproausflug: 8, kmproausflug: 100, mehrtagesfahrten: 40, tageprofahrt: 2, kmprofahrt: 100, urlaubsfahrten: 1, tageprourlaub: 7, kmprourlaub: 600, flex: 'teilweise', freefloatingFit: 'auto' }
+    },
+    {
+      id: 'urban-couple', title: 'Paar, städtisch & Homeoffice', iconId: 'scenario-icon-home',
+      summary: '4.500 km · Freizeit · gelegentliche Wochenenden',
+      values: { jahreskm: 4500, kurzfahrten: 8, stundenprofahrt: 2, bringtageprowoche: 0, bringwochenprojahr: 40, bringkmprotag: 12, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 100, kindersitz: false, tagesausfluege: 6, stundenproausflug: 8, kmproausflug: 100, mehrtagesfahrten: 4, tageprofahrt: 2, kmprofahrt: 200, urlaubsfahrten: 1, tageprourlaub: 7, kmprourlaub: 700, flex: 'teilweise', freefloatingFit: 'suitable' }
+    },
+    {
+      id: 'retirement', title: 'Ruhestand mit Terminen', iconId: 'scenario-icon-care',
+      summary: '5.000 km · Arzt und Einkauf · meist planbar',
+      values: { jahreskm: 5000, kurzfahrten: 12, stundenprofahrt: 3, bringtageprowoche: 0, bringwochenprojahr: 40, bringkmprotag: 12, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 100, kindersitz: false, tagesausfluege: 4, stundenproausflug: 7, kmproausflug: 80, mehrtagesfahrten: 2, tageprofahrt: 3, kmprofahrt: 200, urlaubsfahrten: 1, tageprourlaub: 7, kmprourlaub: 600, flex: 'planbar', freefloatingFit: 'supplement' }
+    },
+    {
+      id: 'low-mileage', title: 'Wenigfahrer', iconId: 'scenario-icon-route',
+      summary: '2.500 km · 3 Alltagsfahrten/Monat · 1 Urlaub',
+      values: { jahreskm: 2500, kurzfahrten: 3, stundenprofahrt: 2, bringtageprowoche: 0, bringwochenprojahr: 40, bringkmprotag: 12, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 100, kindersitz: false, tagesausfluege: 3, stundenproausflug: 8, kmproausflug: 100, mehrtagesfahrten: 2, tageprofahrt: 2, kmprofahrt: 200, urlaubsfahrten: 1, tageprourlaub: 7, kmprourlaub: 600, flex: 'planbar', freefloatingFit: 'supplement' }
+    },
+    {
+      id: 'leisure', title: 'Freizeit & Ausflüge', iconId: 'scenario-icon-route',
+      summary: '7.000 km · 18 Tagesausflüge · 8 Wochenenden',
+      values: { jahreskm: 7000, kurzfahrten: 4, stundenprofahrt: 2, bringtageprowoche: 0, bringwochenprojahr: 40, bringkmprotag: 12, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 100, kindersitz: false, tagesausfluege: 18, stundenproausflug: 9, kmproausflug: 120, mehrtagesfahrten: 8, tageprofahrt: 2, kmprofahrt: 300, urlaubsfahrten: 1, tageprourlaub: 7, kmprourlaub: 800, flex: 'planbar', freefloatingFit: 'supplement' }
+    }
+  ];
+  var showAllUsageScenarios = false;
+  var scenarioUndoUsage = null;
+  var activeScenarioTitle = '';
+  var scenarioPickerCollapsed = false;
 
   var STORAGE_KEY = 'carsharing-rechner:v1';
   var SHARE_FORMAT_VERSION = 1;
@@ -198,6 +263,30 @@
   }
 
   /**
+   * Prüft, ob ein Wert null oder ein boolescher Verfügbarkeitswert ist.
+   * @param {*} value - Zu prüfender Wert.
+   * @returns {boolean} True für null oder boolean.
+   */
+  function isNullableBoolean(value){
+    return value === null || typeof value === 'boolean';
+  }
+
+  /**
+   * Ergänzt und bereinigt den Auswahlmodus älterer gespeicherter Zustände.
+   * @param {Object} selection - Gespeicherte Anbieter-, Klassen- und Tarifauswahl.
+   * @returns {Object} Auswahl mit einem unterstützten Empfehlungsmodus.
+   */
+  function normalizeSelection(selection){
+    if(!isObject(selection)){
+      return selection;
+    }
+    if(!recommendationData.isKnownMode(selection.recommendationMode)){
+      selection.recommendationMode = MODE_MANUAL;
+    }
+    return selection;
+  }
+
+  /**
    * Checks whether an object contains finite non-negative numbers for all named fields.
    * @param {Object} value - Object containing numeric settings.
    * @param {Array<string>} fields - Required numeric field names.
@@ -265,7 +354,7 @@
     if(!isObject(snapshot) || !hasValidNumbers(snapshot.own, ownFields) || !hasValidNumbers(snapshot.usage, usageFields)){
       return false;
     }
-    if(typeof snapshot.usage.flex !== 'string' || typeof snapshot.usage.parkplatz !== 'boolean' || typeof snapshot.usage.kindersitz !== 'boolean'){
+    if(typeof snapshot.usage.flex !== 'string' || !recommendationData.isKnownFreeFloatingFit(snapshot.usage.freefloatingFit) || typeof snapshot.usage.parkplatz !== 'boolean' || typeof snapshot.usage.kindersitz !== 'boolean'){
       return false;
     }
     if(!isObject(snapshot.location) || typeof snapshot.location.address !== 'string' || !isObject(snapshot.location.byProvider)){
@@ -273,12 +362,22 @@
     }
     var validLocations = Object.keys(snapshot.location.byProvider).every(function(providerId){
       var locationEntry = snapshot.location.byProvider[providerId];
-      return isObject(locationEntry) && isNullableNumber(locationEntry.stationCount) && isNullableNumber(locationEntry.walkMinutes);
+      if(!isObject(locationEntry)){
+        return false;
+      }
+      var serviceAvailable = null;
+      if(typeof locationEntry.serviceAvailable !== 'undefined'){
+        serviceAvailable = locationEntry.serviceAvailable;
+      }
+      return isNullableNumber(locationEntry.stationCount) && isNullableNumber(locationEntry.walkMinutes) && isNullableBoolean(serviceAvailable);
     });
     if(!validLocations || !hasValidProviders(snapshot.providers) || !isObject(snapshot.selection)){
       return false;
     }
-    return typeof snapshot.selection.providerId === 'string' && typeof snapshot.selection.classId === 'string' && typeof snapshot.selection.tariffId === 'string';
+    return typeof snapshot.selection.providerId === 'string' &&
+      typeof snapshot.selection.classId === 'string' &&
+      typeof snapshot.selection.tariffId === 'string' &&
+      recommendationData.isKnownMode(snapshot.selection.recommendationMode);
   }
 
   /**
@@ -291,7 +390,7 @@
     state.usage = snapshot.usage;
     state.location = snapshot.location;
     state.providers = snapshot.providers;
-    state.selection = snapshot.selection;
+    state.selection = normalizeSelection(snapshot.selection);
   }
 
   /**
@@ -312,6 +411,9 @@
           sharedUsage.vergleichsjahre = Math.max(wrapper.state.own.haltedauer, 1);
         }
         wrapper.state.usage = sharedUsage;
+      }
+      if(isObject(wrapper) && isObject(wrapper.state)){
+        wrapper.state.selection = normalizeSelection(wrapper.state.selection);
       }
       if(!isObject(wrapper) || wrapper.version !== SHARE_FORMAT_VERSION || !isValidSharedState(wrapper.state)){
         throw new Error('share-state');
@@ -471,7 +573,7 @@
             }
           });
         }
-        if(parsed.selection) state.selection = parsed.selection;
+        if(parsed.selection) state.selection = normalizeSelection(parsed.selection);
       }
     }catch(e){ /* kein gespeicherter Stand vorhanden - Standardwerte werden verwendet */ }
   }
@@ -530,6 +632,37 @@
 
   var calculate = window.CarshareCalculator.calculate;
 
+  /**
+   * Berechnet entweder die manuelle Tarifauswahl oder den gewählten Empfehlungsmodus.
+   * @returns {Object} Vollständiges Ergebnis für die aktuelle Darstellung.
+   */
+  function calculateDisplayedResult(){
+    if(state.selection.recommendationMode === MODE_SINGLE || state.selection.recommendationMode === MODE_MIX){
+      var recommendedResult = recommendationData.calculateRecommendation(state);
+      if(recommendedResult){
+        return recommendedResult;
+      }
+      var unavailableResult = calculate(state);
+      unavailableResult.cambio = null;
+      unavailableResult.providerName = 'Keine Empfehlung';
+      var unavailableTitle = 'Empfehlung – ein Anbieter';
+      if(state.selection.recommendationMode === MODE_MIX){
+        unavailableTitle = 'Empfehlung – Mobilitätsmix';
+      }
+      unavailableResult.recommendation = {
+        mode: state.selection.recommendationMode,
+        title: unavailableTitle,
+        primaryProviderId: '',
+        providerIds: [],
+        rows: [],
+        locationKnown: false,
+        unavailable: true
+      };
+      return unavailableResult;
+    }
+    return calculate(state);
+  }
+
   // ---------- Rendering: Rechner tab ----------
 
   /**
@@ -548,6 +681,128 @@
     document.getElementById('own_kraftstoffpreis').value = o.kraftstoffpreis;
     document.getElementById('own_stellplatz').value = o.stellplatz;
     document.getElementById('own_parkausweis').value = o.parkausweis;
+  }
+
+  /**
+   * Findet eine Nutzungsvorlage anhand ihrer Kennung.
+   * @param {string} scenarioId - Kennung der gesuchten Vorlage.
+   * @returns {Object|undefined} Passende Nutzungsvorlage.
+   */
+  function findUsageScenario(scenarioId){
+    return usageScenarios.find(function(scenario){ return scenario.id === scenarioId; });
+  }
+
+  /**
+   * Rendert die sichtbaren Nutzungsvorlagen aus dem wiederverwendbaren Karten-Template.
+   * @returns {void}
+   */
+  function renderUsageScenarios(){
+    var browser = document.getElementById('scenario-browser');
+    var status = document.getElementById('scenario-status');
+    browser.hidden = scenarioPickerCollapsed;
+    status.hidden = !scenarioPickerCollapsed;
+    if(scenarioPickerCollapsed){
+      document.getElementById('scenario-status-text').textContent = 'Vorlage „' + activeScenarioTitle + '“ übernommen.';
+      return;
+    }
+
+    var visibleCount = 4;
+    if(showAllUsageScenarios){
+      visibleCount = usageScenarios.length;
+    }
+    var template = document.getElementById('scenario-card-template');
+    var fragment = document.createDocumentFragment();
+    for(var index = 0; index < visibleCount; index += 1){
+      var scenario = usageScenarios[index];
+      var card = template.content.firstElementChild.cloneNode(true);
+      card.querySelector('.scenario-icon-use').setAttribute('href', '#' + scenario.iconId);
+      card.querySelector('.scenario-title').textContent = scenario.title;
+      card.querySelector('.scenario-summary').textContent = scenario.summary;
+      var applyButton = card.querySelector('.scenario-apply');
+      applyButton.setAttribute('data-scenario-id', scenario.id);
+      applyButton.setAttribute('aria-label', 'Vorlage ' + scenario.title + ' übernehmen');
+      applyButton.addEventListener('click', function(event){
+        applyUsageScenario(event.currentTarget.getAttribute('data-scenario-id'));
+      });
+      fragment.appendChild(card);
+    }
+    document.getElementById('scenario-list').replaceChildren(fragment);
+    var moreButton = document.getElementById('scenario-more-btn');
+    moreButton.setAttribute('aria-expanded', String(showAllUsageScenarios));
+    moreButton.textContent = 'Weitere Szenarien anzeigen';
+    if(showAllUsageScenarios){
+      moreButton.textContent = 'Weniger Szenarien anzeigen';
+    }
+  }
+
+  /**
+   * Übernimmt die Fahrdaten einer Vorlage und bewahrt unabhängige Nutzereinstellungen.
+   * @param {string} scenarioId - Kennung der anzuwendenden Vorlage.
+   * @returns {void}
+   */
+  function applyUsageScenario(scenarioId){
+    var scenario = findUsageScenario(scenarioId);
+    if(!scenario){
+      return;
+    }
+    scenarioUndoUsage = Object.assign({}, state.usage);
+    var comparisonYears = state.usage.vergleichsjahre;
+    var parkingRequired = state.usage.parkplatz;
+    state.usage = Object.assign(defaultUsage(), scenario.values);
+    state.usage.vergleichsjahre = comparisonYears;
+    state.usage.parkplatz = parkingRequired;
+    activeScenarioTitle = scenario.title;
+    scenarioPickerCollapsed = true;
+    fillUsageInputs();
+    renderUsageScenarios();
+    render();
+    scheduleSave();
+  }
+
+  /**
+   * Stellt die Nutzungseingaben vom Zeitpunkt vor der letzten Vorlagenwahl wieder her.
+   * @returns {void}
+   */
+  function restoreUsageBeforeScenario(){
+    if(!scenarioUndoUsage){
+      return;
+    }
+    state.usage = scenarioUndoUsage;
+    scenarioUndoUsage = null;
+    activeScenarioTitle = '';
+    scenarioPickerCollapsed = false;
+    fillUsageInputs();
+    renderUsageScenarios();
+    render();
+    scheduleSave();
+  }
+
+  /**
+   * Öffnet die Vorlagenauswahl, damit eine andere Ausgangslage gewählt werden kann.
+   * @returns {void}
+   */
+  function reopenUsageScenarios(){
+    scenarioPickerCollapsed = false;
+    renderUsageScenarios();
+  }
+
+  /**
+   * Setzt den Fokus auf das erste von einer Vorlage ausgefüllte Nutzungsfeld.
+   * @returns {void}
+   */
+  function focusScenarioUsageValues(){
+    var annualMileage = document.getElementById('use_jahreskm');
+    annualMileage.focus();
+    annualMileage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  /**
+   * Klappt die zusätzlichen Nutzungsvorlagen ein oder aus.
+   * @returns {void}
+   */
+  function toggleAdditionalUsageScenarios(){
+    showAllUsageScenarios = !showAllUsageScenarios;
+    renderUsageScenarios();
   }
   /**
    * Copies usage state into its form controls and updates dependent controls.
@@ -575,10 +830,25 @@
     document.getElementById('use_urlaubsfahrten').value = u.urlaubsfahrten;
     document.getElementById('use_tageprourlaub').value = u.tageprourlaub;
     document.getElementById('use_kmprourlaub').value = u.kmprourlaub;
+    document.getElementById('use_freefloating_fit').value = u.freefloatingFit;
     document.getElementById('use_parkplatz').checked = !!u.parkplatz;
     var radios = document.getElementsByName('flex');
     for(var i=0;i<radios.length;i++){ radios[i].checked = (radios[i].value === u.flex); }
     updateStellplatzState(u.parkplatz);
+    renderFreeFloatingFitHint();
+  }
+
+  /**
+   * Erklärt die aktuelle automatische oder manuelle Free-Floating-Einstufung.
+   * @returns {void}
+   */
+  function renderFreeFloatingFitHint(){
+    var fit = recommendationData.resolveFreeFloatingFit(state);
+    var prefix = 'Für Empfehlungen: ';
+    if(fit.selected === recommendationData.FREE_FLOATING_AUTO){
+      prefix = 'Automatische Einstufung: ';
+    }
+    document.getElementById('freefloating-fit-hint').textContent = prefix + fit.reason + '. Die angezeigten Eurobeträge bleiben unverändert.';
   }
 
   /**
@@ -630,6 +900,19 @@
     document.getElementById('loc_address').value = state.location.address;
     var provider = findProvider(state.selection.providerId) || state.providers[0];
     var pl = getProviderLocation(provider.id);
+    var stationFields = document.getElementById('station-location-fields');
+    var floatingFields = document.getElementById('free-floating-location-fields');
+    var isFreeFloating = provider.operationMode === 'free-floating';
+    var locationContextHint = document.getElementById('location-context-hint');
+    if(state.selection.recommendationMode === MODE_MANUAL){
+      locationContextHint.textContent = 'Die Prüfung richtet sich nach dem oben ausgewählten Anbieter.';
+    } else {
+      locationContextHint.textContent = 'Für Empfehlungen zählen die Standortwerte aller Anbieter. Wähle oben vorübergehend einen einzelnen Anbieter, um dessen Werte zu prüfen oder zu ändern.';
+    }
+    stationFields.hidden = isFreeFloating;
+    floatingFields.hidden = !isFreeFloating;
+    document.getElementById('loc-search-btn').disabled = isFreeFloating;
+    document.getElementById('loc_address').disabled = isFreeFloating;
     document.getElementById('loc_count').value = '';
     document.getElementById('loc_walk').value = '';
     if(pl.stationCount !== null){
@@ -640,6 +923,14 @@
     }
     document.getElementById('loc-provider-label-count').textContent = 'für ' + provider.name;
     document.getElementById('loc-provider-label-walk').textContent = 'für ' + provider.name + ', Min.';
+    var floatingValue = 'unknown';
+    if(pl.serviceAvailable === true){
+      floatingValue = 'yes';
+    } else if(pl.serviceAvailable === false){
+      floatingValue = 'no';
+    }
+    document.getElementById('loc_freefloating').value = floatingValue;
+    document.getElementById('loc-freefloating-provider').textContent = provider.name;
   }
 
   /**
@@ -668,6 +959,28 @@
     state.location.byProvider[provider.id] = {
       stationCount: readNullableNumberInput('loc_count'),
       walkMinutes: readNullableNumberInput('loc_walk'),
+      serviceAvailable: null,
+      source: 'manual'
+    };
+  }
+
+  /**
+   * Speichert, ob ein Free-Floating-Anbieter am Standort ein Geschäftsgebiet hat.
+   * @returns {void}
+   */
+  function readFreeFloatingLocationFromInput(){
+    var provider = findProvider(state.selection.providerId) || state.providers[0];
+    var selectedValue = document.getElementById('loc_freefloating').value;
+    var serviceAvailable = null;
+    if(selectedValue === 'yes'){
+      serviceAvailable = true;
+    } else if(selectedValue === 'no'){
+      serviceAvailable = false;
+    }
+    state.location.byProvider[provider.id] = {
+      stationCount: null,
+      walkMinutes: null,
+      serviceAvailable: serviceAvailable,
       source: 'manual'
     };
   }
@@ -715,6 +1028,10 @@
     var statusEl = document.getElementById('loc_status');
     var btn = document.getElementById('loc-search-btn');
     var provider = findProvider(state.selection.providerId) || state.providers[0];
+    if(provider.operationMode === 'free-floating'){
+      statusEl.textContent = provider.name + ' ist ein Free-Floating-Angebot. Prüfe das Geschäftsgebiet und verfügbare Fahrzeuge direkt in der Anbieter-App.';
+      return;
+    }
     if(!address){
       statusEl.textContent = 'Bitte zuerst eine Adresse eingeben.';
       return;
@@ -792,7 +1109,7 @@
 
       state.location.address = address;
       if(!stations.length){
-        state.location.byProvider[providerId] = { stationCount: 0, walkMinutes: 0, source: 'search' };
+        state.location.byProvider[providerId] = { stationCount: 0, walkMinutes: 0, serviceAvailable: null, source: 'search' };
         fillLocationInputs();
         statusEl.textContent = 'Keine Station von ' + provider.name + ' im Umkreis von 1,5 km in OpenStreetMap gefunden. Falls dir Stationen bekannt sind, trag sie unten manuell ein.';
       } else {
@@ -804,7 +1121,7 @@
           }
         });
         var walkMin = Math.max(1, Math.round(minDist / 80));
-        state.location.byProvider[providerId] = { stationCount: stations.length, walkMinutes: walkMin, source: 'search' };
+        state.location.byProvider[providerId] = { stationCount: stations.length, walkMinutes: walkMin, serviceAvailable: null, source: 'search' };
         fillLocationInputs();
         statusEl.textContent = stations.length + ' Station(en) von ' + provider.name + ' im Umkreis von 1,5 km gefunden · nächste ca. ' + walkMin + ' Gehminuten entfernt.';
       }
@@ -826,44 +1143,133 @@
   }
 
   /**
-   * Rebuilds provider, vehicle-class and tariff selects from current state.
+   * Sammelt alle Fahrzeugklassen, die mindestens ein Anbieter anbietet.
+   * @returns {Array<Object>} Eindeutige Klassen mit Kennung und Name.
+   */
+  function getRecommendationClasses(){
+    var classesById = {};
+    var classes = [];
+    state.providers.forEach(function(provider){
+      provider.classes.forEach(function(cls){
+        if(!classesById[cls.id]){
+          classesById[cls.id] = true;
+          classes.push({ id: cls.id, name: cls.name });
+        }
+      });
+    });
+    return classes;
+  }
+
+  /**
+   * Fügt einem Auswahlfeld eine Option hinzu.
+   * @param {HTMLSelectElement} select - Auswahlfeld, das die Option erhält.
+   * @param {string} value - Technischer Optionswert.
+   * @param {string} label - Sichtbare Beschriftung.
    * @returns {void}
    */
-  function populateSelects(){
+  function appendSelectOption(select, value, label){
+    var option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  }
+
+  /**
+   * Gibt alle Anbieter zurück, die am angezeigten Ergebnis beteiligt sind.
+   * @param {Object} result - Aktuelles Berechnungs- oder Empfehlungsergebnis.
+   * @returns {Array<Object>} Beteiligte Anbieter ohne Duplikate.
+   */
+  function getResultProviders(result){
+    var providerIds = [state.selection.providerId];
+    if(result.recommendation && Array.isArray(result.recommendation.providerIds)){
+      providerIds = result.recommendation.providerIds;
+    }
+    var providers = [];
+    providerIds.forEach(function(providerId){
+      var provider = findProvider(providerId);
+      if(provider && providers.indexOf(provider) === -1){
+        providers.push(provider);
+      }
+    });
+    return providers;
+  }
+
+  /**
+   * Prüft, ob mindestens ein am Ergebnis beteiligter Anbieter Free-Floating nutzt.
+   * @param {Object} result - Aktuelles Berechnungs- oder Empfehlungsergebnis.
+   * @returns {boolean} True, wenn öffentliche Rückgabeplätze zum Modell gehören.
+   */
+  function resultUsesFreeFloating(result){
+    return getResultProviders(result).some(function(provider){ return provider.operationMode === 'free-floating'; });
+  }
+
+  /**
+   * Prüft, ob mindestens ein am Ergebnis beteiligter Anbieter stationsbasiert arbeitet.
+   * @param {Object} result - Aktuelles Berechnungs- oder Empfehlungsergebnis.
+   * @returns {boolean} True, wenn feste Stationen zum Ergebnis gehören.
+   */
+  function resultUsesStations(result){
+    return getResultProviders(result).some(function(provider){ return provider.operationMode !== 'free-floating'; });
+  }
+
+  /**
+   * Rebuilds provider, vehicle-class and tariff selects from current state.
+   * @param {Object} result - Bereits berechnetes Ergebnis für dynamische Empfehlungstexte.
+   * @returns {void}
+   */
+  function populateSelects(result){
     var provSel = document.getElementById('sel_provider');
     var classSel = document.getElementById('sel_class');
     var tariffSel = document.getElementById('sel_tariff');
 
     provSel.replaceChildren();
+    appendSelectOption(provSel, MODE_SINGLE, 'Empfehlung – ein Anbieter');
+    appendSelectOption(provSel, MODE_MIX, 'Empfehlung – Mobilitätsmix');
     state.providers.forEach(function(p){
-      var opt = document.createElement('option'); opt.value = p.id; opt.textContent = p.name;
-      provSel.appendChild(opt);
+      appendSelectOption(provSel, p.id, p.name);
     });
-    document.getElementById('provider-select-row').style.display = 'none';
-    if(state.providers.length > 1){
-      document.getElementById('provider-select-row').style.display = 'grid';
-    }
+    document.getElementById('provider-select-row').style.display = 'grid';
 
     if(!findProvider(state.selection.providerId)) state.selection.providerId = state.providers[0].id;
-    provSel.value = state.selection.providerId;
+    if(state.selection.recommendationMode === MODE_SINGLE || state.selection.recommendationMode === MODE_MIX){
+      provSel.value = state.selection.recommendationMode;
+    } else {
+      provSel.value = state.selection.providerId;
+    }
 
     var provider = findProvider(state.selection.providerId);
+    var availableClasses = provider.classes;
+    if(state.selection.recommendationMode === MODE_SINGLE || state.selection.recommendationMode === MODE_MIX){
+      availableClasses = getRecommendationClasses();
+    }
     classSel.replaceChildren();
-    provider.classes.forEach(function(c){
-      var opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name;
-      classSel.appendChild(opt);
+    availableClasses.forEach(function(c){
+      appendSelectOption(classSel, c.id, c.name);
     });
-    if(!findClass(provider, state.selection.classId)) state.selection.classId = provider.classes[0].id;
+    var classAvailable = availableClasses.some(function(cls){ return cls.id === state.selection.classId; });
+    if(!classAvailable) state.selection.classId = availableClasses[0].id;
     classSel.value = state.selection.classId;
 
-    var cls = findClass(provider, state.selection.classId);
     tariffSel.replaceChildren();
-    cls.tariffs.forEach(function(t){
-      var opt = document.createElement('option'); opt.value = t.id; opt.textContent = t.name;
-      tariffSel.appendChild(opt);
-    });
-    if(!findTariff(cls, state.selection.tariffId)) state.selection.tariffId = cls.tariffs[0].id;
-    tariffSel.value = state.selection.tariffId;
+    tariffSel.disabled = false;
+    if(state.selection.recommendationMode === MODE_SINGLE){
+      var recommendedTariffLabel = 'Kein verfügbarer Tarif';
+      if(result.cambio){
+        recommendedTariffLabel = result.providerName + ' · ' + result.cambio.tariffName;
+      }
+      appendSelectOption(tariffSel, 'automatic', recommendedTariffLabel);
+      tariffSel.disabled = true;
+    } else if(state.selection.recommendationMode === MODE_MIX){
+      appendSelectOption(tariffSel, 'automatic', 'Passende Tarife je Fahrtart');
+      tariffSel.disabled = true;
+    } else {
+      var cls = findClass(provider, state.selection.classId);
+      cls.tariffs.forEach(function(t){
+        appendSelectOption(tariffSel, t.id, t.name);
+      });
+      if(!findTariff(cls, state.selection.tariffId)) state.selection.tariffId = cls.tariffs[0].id;
+      tariffSel.value = state.selection.tariffId;
+    }
   }
 
   /**
@@ -872,7 +1278,11 @@
    * @returns {Array<Object>} Insight cards with tone, title and text.
    */
   function computeInsights(r){
-    var loc = getProviderLocation(state.selection.providerId), u = state.usage;
+    var locationProviderId = state.selection.providerId;
+    if(r.recommendation && r.recommendation.primaryProviderId){
+      locationProviderId = r.recommendation.primaryProviderId;
+    }
+    var loc = getProviderLocation(locationProviderId), u = state.usage;
     var cards = [];
 
     // Flexibilität anhand Stationsdichte und Gehzeit
@@ -882,7 +1292,31 @@
       planbar: ' Da deine Fahrten meist planbar sind, lässt sich das per Vorausbuchung gut ausgleichen.'
     }[u.flex] || '';
 
-    if(loc.source === 'unknown'){
+    var selectedLocationProvider = findProvider(locationProviderId);
+    var locationIsFreeFloating = selectedLocationProvider && selectedLocationProvider.operationMode === 'free-floating';
+    if(r.recommendation && r.recommendation.unavailable){
+      cards.push({ tone: 'bad', title: 'Keine verfügbare Empfehlung',
+        text: 'Für diese Fahrzeugklasse sind alle passenden Anbieter am bestätigten Standort ausgeschlossen.' });
+    } else if(r.recommendation && !r.recommendation.locationKnown){
+      var missingLocationText = 'Für mindestens einen vorgeschlagenen Anbieter fehlen bestätigte Standortwerte. Prüfe die Verfügbarkeit vor deiner Entscheidung.';
+      if(resultUsesFreeFloating(r) && !resultUsesStations(r)){
+        missingLocationText = 'Für mindestens einen vorgeschlagenen Free-Floating-Anbieter ist das Geschäftsgebiet noch nicht bestätigt. Prüfe es vor deiner Entscheidung in der Anbieter-App.';
+      }
+      cards.push({ tone: 'mid', title: 'Rein rechnerische Empfehlung',
+        text: missingLocationText });
+    } else if(r.recommendation && r.recommendation.locationKnown){
+      cards.push({ tone: 'good', title: 'Verfügbarkeit geprüft',
+        text: 'Für alle vorgeschlagenen Anbieter liegen bestätigte Stations- und Gehzeitwerte vor. Innerhalb der verfügbaren Angebote entscheidet der Preis.' });
+    } else if(locationIsFreeFloating && loc.serviceAvailable === null){
+      cards.push({ tone: 'mid', title: 'Geschäftsgebiet noch nicht geprüft',
+        text: 'Prüfe in der Anbieter-App, ob dein Standort im Geschäftsgebiet liegt und aktuell Fahrzeuge in erreichbarer Nähe stehen.' + flexHint });
+    } else if(locationIsFreeFloating && loc.serviceAvailable === false){
+      cards.push({ tone: 'bad', title: 'Free-Floating nicht verfügbar',
+        text: 'Der ausgewählte Anbieter hat an deinem Standort kein nutzbares Geschäftsgebiet.' + flexHint });
+    } else if(locationIsFreeFloating && loc.serviceAvailable === true){
+      cards.push({ tone: 'good', title: 'Free-Floating ist grundsätzlich verfügbar',
+        text: 'Fahrzeuge stehen verteilt im Geschäftsgebiet. Die tatsächliche Entfernung und Verfügbarkeit prüfst du vor jeder Fahrt in der Anbieter-App.' + flexHint });
+    } else if(loc.source === 'unknown'){
       cards.push({ tone: 'mid', title: 'Standort noch nicht bewertet',
         text: 'Suche nach Stationen oder trage Stationszahl und Gehzeit ein. Erst danach kann die Verfügbarkeit des ausgewählten Anbieters bewertet werden.' + flexHint });
     } else if(loc.source === 'legacy'){
@@ -986,15 +1420,26 @@
     }
 
     // Parkplatzsuche ohne garantierten Platz: Nachteil beim eigenen Auto benennen
-    if(!u.parkplatz){
+    if(!u.parkplatz && r.cambio){
       var parkingPermitText = '';
       if(state.own.parkausweis > 0){
         parkingPermitText = 'Der Anwohnerparkausweis (' + fmtEUR(state.own.parkausweis) + '/Jahr) ist bereits in den Autokosten eingerechnet, der Zeitaufwand selbst aber nicht. ';
       }
-      cards.push({ tone: 'mid', title: 'Parkplatzsuche als Nachteil beim eigenen Auto',
+      var parkingComparison = '';
+      var usesFreeFloating = resultUsesFreeFloating(r);
+      var usesStations = resultUsesStations(r);
+      if(!usesFreeFloating && !usesStations){
+        parkingComparison = 'Da keine Carsharing-Fahrten anfallen, entsteht auf dieser Seite auch keine Parkplatzsuche.';
+      } else if(usesFreeFloating && usesStations){
+        parkingComparison = 'Im vorgeschlagenen Mix haben stationsbasierte Fahrzeuge einen festen Rückgabeort. Bei Free-Floating musst du dagegen selbst einen legalen öffentlichen Stellplatz im Geschäftsgebiet finden; zulässige Parkgebühren übernimmt der Anbieter nach seinen lokalen Regeln.';
+      } else if(usesFreeFloating){
+        parkingComparison = 'Auch bei ' + r.providerName + ' musst du zum Fahrtende selbst einen legalen öffentlichen Stellplatz im Geschäftsgebiet finden. Zulässige Parkgebühren übernimmt der Anbieter nach seinen lokalen Regeln, die Parkplatzsuche bleibt aber bestehen.';
+      } else {
+        parkingComparison = 'Bei ' + r.providerName + ' bringst du das Fahrzeug zu einem vorgesehenen Rückgabeort zurück. Die Suche nach einem eigenen Dauerparkplatz entfällt damit weitgehend.';
+      }
+      cards.push({ tone: 'mid', title: 'Parkplatzsuche realistisch vergleichen',
         text: 'Ohne garantierten Platz kostet die tägliche Parkplatzsuche auf öffentlichem Grund Zeit und Nerven, gerade abends in dicht bebauten Vierteln. ' +
-              parkingPermitText +
-              'Bei ' + r.providerName + ' entfällt das für dich: Der Anbieter kümmert sich um den Abstellplatz, du musst selbst keinen Parkplatz suchen.' });
+              parkingPermitText + parkingComparison });
     }
 
     return cards;
@@ -1052,12 +1497,95 @@
   }
 
   /**
+   * Zeichnet die Kostenanteile von eigenem Auto und Carsharing als gestapelte Balken.
+   * @param {Object} result - Aktuelles Berechnungsergebnis.
+   * @returns {void}
+   */
+  function renderCostComposition(result){
+    var container = document.getElementById('cost-composition-bars');
+    var template = document.getElementById('cost-composition-row-template');
+    var rows = [{ name: 'Eigenes Auto', values: result.own }];
+    if(result.cambio){
+      rows.push({ name: result.providerName, values: result.cambio });
+    }
+    var fragment = document.createDocumentFragment();
+    rows.forEach(function(row){
+      var element = template.content.firstElementChild.cloneNode(true);
+      var total = Math.max(row.values.total, 0);
+      var fixPercent = 0;
+      var timePercent = 0;
+      var distancePercent = 0;
+      if(total > 0){
+        fixPercent = Math.max(row.values.fix, 0) / total * 100;
+        timePercent = Math.max(row.values.fuel, 0) / total * 100;
+        distancePercent = Math.max(row.values.km, 0) / total * 100;
+      }
+      element.querySelector('.cost-composition-name').textContent = row.name;
+      element.querySelector('.cost-composition-total').textContent = fmtEUR(total);
+      element.querySelector('.segment-fix').style.width = fixPercent + '%';
+      element.querySelector('.segment-time').style.width = timePercent + '%';
+      element.querySelector('.segment-distance').style.width = distancePercent + '%';
+      element.querySelector('.cost-stack').setAttribute('aria-label', row.name + ': ' + Math.round(fixPercent) + ' Prozent Fixkosten, ' + Math.round(timePercent) + ' Prozent Fahrzeit oder Kraftstoff und ' + Math.round(distancePercent) + ' Prozent Kilometerkosten.');
+      fragment.appendChild(element);
+    });
+    container.replaceChildren(fragment);
+  }
+
+  /**
+   * Zeigt Rangliste oder Tarifzuordnung für das berechnete Empfehlungsergebnis.
+   * @param {Object} result - Aktuelles Berechnungsergebnis mit optionaler Empfehlung.
+   * @returns {void}
+   */
+  function renderRecommendation(result){
+    var panel = document.getElementById('recommendation-panel');
+    var list = document.getElementById('recommendation-list');
+    if(!result.recommendation){
+      panel.hidden = true;
+      list.replaceChildren();
+      return;
+    }
+
+    panel.hidden = false;
+    document.getElementById('recommendation-title').textContent = result.recommendation.title;
+    var basis = '';
+    if(result.recommendation.unavailable){
+      basis = 'Für die gewählte Fahrzeugklasse bleibt nach den bestätigten Standortangaben kein verfügbarer Anbieter übrig.';
+    } else {
+      basis = 'Grundgebühren und anteilige Anmeldegebühren sind im Gesamtergebnis enthalten. ';
+      if(result.recommendation.locationKnown){
+        basis += 'Bestätigte Verfügbarkeit wurde als Ausschlusskriterium berücksichtigt.';
+      } else {
+        basis += 'Die Empfehlung ist rein rechnerisch, solange Standortwerte fehlen.';
+      }
+      if(result.recommendation.fitSummary){
+        basis += ' Free-Floating wird für die Reihenfolge ' + result.recommendation.fitSummary + '; die tatsächlichen Kosten bleiben unverändert.';
+      }
+    }
+    document.getElementById('recommendation-basis').textContent = basis;
+
+    var template = document.getElementById('recommendation-row-template');
+    var fragment = document.createDocumentFragment();
+    result.recommendation.rows.forEach(function(row, index){
+      var element = template.content.firstElementChild.cloneNode(true);
+      var label = row.label;
+      if(result.recommendation.mode === MODE_SINGLE){
+        label = (index + 1) + '. ' + label;
+      }
+      element.querySelector('.recommendation-label').textContent = label;
+      element.querySelector('.recommendation-detail').textContent = row.detail || '';
+      element.querySelector('.recommendation-cost').textContent = fmtEUR(row.cost);
+      fragment.appendChild(element);
+    });
+    list.replaceChildren(fragment);
+  }
+
+  /**
    * Recalculates and renders the complete comparison view.
    * @returns {void}
    */
   function render(){
-    populateSelects();
-    var r = calculate(state);
+    var r = calculateDisplayedResult();
+    populateSelects(r);
 
     var headline = document.getElementById('headline-figure');
     var sub = document.getElementById('headline-sub');
@@ -1075,7 +1603,11 @@
     } else {
       headline.textContent = fmtEUR(r.own.total) + ' / Jahr';
       headline.className = 'headline-figure';
-      sub.textContent = 'Lege rechts einen Carsharing-Tarif an, um zu vergleichen.';
+      if(r.recommendation && r.recommendation.unavailable){
+        sub.textContent = 'Für die gewählte Fahrzeugklasse ist kein bestätigter Anbieter verfügbar.';
+      } else {
+        sub.textContent = 'Lege rechts einen Carsharing-Tarif an, um zu vergleichen.';
+      }
     }
 
     var providerTotal = 0;
@@ -1118,6 +1650,8 @@
     }
 
     renderUsageValidation(r);
+    renderRecommendation(r);
+    renderCostComposition(r);
     renderTripCostBreakdown(r);
     renderInsights(r);
   }
@@ -1169,6 +1703,7 @@
       urlaubsfahrten: +document.getElementById('use_urlaubsfahrten').value || 0,
       tageprourlaub: +document.getElementById('use_tageprourlaub').value || 0,
       kmprourlaub: +document.getElementById('use_kmprourlaub').value || 0,
+      freefloatingFit: document.getElementById('use_freefloating_fit').value,
       flex: flex,
       parkplatz: document.getElementById('use_parkplatz').checked
     };
@@ -1192,16 +1727,29 @@
       document.getElementById(id).addEventListener('input', function(){ readOwnFromInputs(); render(); scheduleSave(); });
     });
     useIds.forEach(function(id){
-      document.getElementById(id).addEventListener('input', function(){ readUsageFromInputs(); render(); scheduleSave(); });
+      document.getElementById(id).addEventListener('input', function(){ readUsageFromInputs(); renderFreeFloatingFitHint(); render(); scheduleSave(); });
     });
     document.getElementsByName('flex').forEach(function(r){
       r.addEventListener('change', function(){ readUsageFromInputs(); render(); scheduleSave(); });
     });
     document.getElementById('use_parkplatz').addEventListener('change', function(){ readUsageFromInputs(); render(); scheduleSave(); });
-    document.getElementById('use_kindersitz').addEventListener('change', function(){ readUsageFromInputs(); render(); scheduleSave(); });
+    document.getElementById('use_kindersitz').addEventListener('change', function(){ readUsageFromInputs(); renderFreeFloatingFitHint(); render(); scheduleSave(); });
+    document.getElementById('use_freefloating_fit').addEventListener('change', function(){ readUsageFromInputs(); renderFreeFloatingFitHint(); render(); scheduleSave(); });
+    document.getElementById('scenario-more-btn').addEventListener('click', toggleAdditionalUsageScenarios);
+    document.getElementById('scenario-change-btn').addEventListener('click', reopenUsageScenarios);
+    document.getElementById('scenario-values-btn').addEventListener('click', focusScenarioUsageValues);
+    document.getElementById('scenario-undo-btn').addEventListener('click', restoreUsageBeforeScenario);
 
     document.getElementById('sel_provider').addEventListener('change', function(e){
       stationSearchGeneration += 1;
+      if(e.target.value === MODE_SINGLE || e.target.value === MODE_MIX){
+        state.selection.recommendationMode = e.target.value;
+        fillLocationInputs();
+        render();
+        scheduleSave();
+        return;
+      }
+      state.selection.recommendationMode = MODE_MANUAL;
       state.selection.providerId = e.target.value;
       var p = findProvider(state.selection.providerId);
       state.selection.classId = p.classes[0].id;
@@ -1212,12 +1760,17 @@
     });
     document.getElementById('sel_class').addEventListener('change', function(e){
       state.selection.classId = e.target.value;
-      var p = findProvider(state.selection.providerId);
-      var c = findClass(p, state.selection.classId);
-      state.selection.tariffId = c.tariffs[0].id;
+      if(state.selection.recommendationMode === MODE_MANUAL){
+        var p = findProvider(state.selection.providerId);
+        var c = findClass(p, state.selection.classId);
+        state.selection.tariffId = c.tariffs[0].id;
+      }
       render(); scheduleSave();
     });
     document.getElementById('sel_tariff').addEventListener('change', function(e){
+      if(state.selection.recommendationMode !== MODE_MANUAL){
+        return;
+      }
       state.selection.tariffId = e.target.value;
       render(); scheduleSave();
     });
@@ -1225,12 +1778,17 @@
     document.getElementById('reset-btn').addEventListener('click', function(){
       state.own = defaultOwn();
       state.usage = defaultUsage();
+      scenarioUndoUsage = null;
+      activeScenarioTitle = '';
+      scenarioPickerCollapsed = false;
+      renderUsageScenarios();
       fillOwnInputs(); fillUsageInputs(); render(); scheduleSave();
     });
 
     document.getElementById('loc-search-btn').addEventListener('click', searchStations);
     document.getElementById('loc_count').addEventListener('input', function(){ readLocationFromInputs(); render(); scheduleSave(); });
     document.getElementById('loc_walk').addEventListener('input', function(){ readLocationFromInputs(); render(); scheduleSave(); });
+    document.getElementById('loc_freefloating').addEventListener('change', function(){ readFreeFloatingLocationFromInput(); render(); scheduleSave(); });
     document.getElementById('loc_address').addEventListener('input', function(){ readAddressFromInput(); scheduleSave(); });
     document.getElementById('share-btn').addEventListener('click', shareCurrentState);
   }
@@ -1389,7 +1947,7 @@
       return;
     }
     state.providers = defaultProviders();
-    state.selection = { providerId: 'cambio', classId: 'klein', tariffId: 'aktiv' };
+    state.selection = { providerId: 'cambio', classId: 'klein', tariffId: 'aktiv', recommendationMode: MODE_MANUAL };
     var standardLocations = defaultLocation().byProvider;
     Object.keys(standardLocations).forEach(function(providerId){
       if(state.location.byProvider[providerId]){
@@ -1481,6 +2039,7 @@
     fillOwnInputs();
     fillUsageInputs();
     fillLocationInputs();
+    renderUsageScenarios();
     bindRechnerEvents();
     renderProviders();
     bindTariffEvents();

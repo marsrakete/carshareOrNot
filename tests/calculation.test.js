@@ -28,12 +28,14 @@ function createElementStub(){
 function loadApplication(){
   const providersPath = path.join(__dirname, '..', 'providers.js');
   const calculatorPath = path.join(__dirname, '..', 'calculator.js');
+  const recommendationsPath = path.join(__dirname, '..', 'recommendations.js');
   const applicationPath = path.join(__dirname, '..', 'app.js');
   const providersScript = fs.readFileSync(providersPath, 'utf8');
   const calculatorScript = fs.readFileSync(calculatorPath, 'utf8');
+  const recommendationsScript = fs.readFileSync(recommendationsPath, 'utf8');
   const exposedScript = fs.readFileSync(applicationPath, 'utf8').replace(
     /\n\s*init\(\);/,
-    '\nglobalThis.__testApi = { state: state, calculate: calculate, defaultUsage: defaultUsage, defaultLocationForProvider: defaultLocationForProvider, normalizeTariffData: normalizeTariffData, encodeSharePayload: encodeSharePayload, decodeSharePayload: decodeSharePayload, isValidSharedState: isValidSharedState };'
+    '\nglobalThis.__testApi = { state: state, calculate: calculate, calculateRecommendation: recommendationData.calculateRecommendation, defaultUsage: defaultUsage, defaultLocationForProvider: defaultLocationForProvider, normalizeTariffData: normalizeTariffData, normalizeSelection: normalizeSelection, encodeSharePayload: encodeSharePayload, decodeSharePayload: decodeSharePayload, isValidSharedState: isValidSharedState };'
   );
   const element = createElementStub();
   const context = {
@@ -63,6 +65,7 @@ function loadApplication(){
   vm.createContext(context);
   vm.runInContext(providersScript, context);
   vm.runInContext(calculatorScript, context);
+  vm.runInContext(recommendationsScript, context);
   vm.runInContext(exposedScript, context);
   return context.__testApi;
 }
@@ -78,7 +81,7 @@ test('unknown locations do not invent availability', function(){
   const app = loadApplication();
   assert.deepEqual(
     JSON.parse(JSON.stringify(app.defaultLocationForProvider('cambio'))),
-    { stationCount: null, walkMinutes: null, source: 'unknown' }
+    { stationCount: null, walkMinutes: null, serviceAvailable: null, source: 'unknown' }
   );
 });
 
@@ -235,4 +238,131 @@ test('share payload round-trips every setting and rejects incomplete state', asy
   assert.equal(app.isValidSharedState(wrapper.state), true);
   delete wrapper.state.usage.jahreskm;
   assert.equal(app.isValidSharedState(wrapper.state), false);
+});
+
+test('single-provider recommendation ranks the cheapest matching tariffs', function(){
+  const app = loadApplication();
+  app.state.selection.recommendationMode = 'recommend-single';
+  const result = app.calculateRecommendation(app.state);
+  assert.equal(result.recommendation.mode, 'recommend-single');
+  assert.equal(result.recommendation.rows.length, 3);
+  assert.ok(result.recommendation.rows[0].cost <= result.recommendation.rows[1].cost);
+  assert.ok(result.recommendation.rows[1].cost <= result.recommendation.rows[2].cost);
+  assert.equal(result.cambio.total, result.recommendation.rows[0].cost);
+});
+
+test('mobility mix never costs more than its best single-provider option', function(){
+  const app = loadApplication();
+  app.state.selection.recommendationMode = 'recommend-single';
+  const singleResult = app.calculateRecommendation(app.state);
+  app.state.selection.recommendationMode = 'recommend-mix';
+  const mixResult = app.calculateRecommendation(app.state);
+  assert.equal(mixResult.recommendation.mode, 'recommend-mix');
+  assert.ok(mixResult.recommendation.rows.length > 0);
+  assert.ok(mixResult.cambio.total <= singleResult.cambio.total + 0.001);
+  assert.ok(Math.abs(mixResult.cambio.total - mixResult.cambio.fix - mixResult.cambio.fuel - mixResult.cambio.km) < 0.001);
+});
+
+test('mobility mix assigns different trip types and counts each selected tariff fee once', function(){
+  const app = loadApplication();
+  app.state.usage = Object.assign(app.defaultUsage(), {
+    jahreskm: 1200,
+    kurzfahrten: 12,
+    stundenprofahrt: 1,
+    tagesausfluege: 0,
+    mehrtagesfahrten: 1,
+    tageprofahrt: 7,
+    kmprofahrt: 700,
+    urlaubsfahrten: 0
+  });
+  app.state.providers = [
+    {
+      id: 'short', name: 'Kurzstrecke', classes: [{ id: 'klein', name: 'Kleinwagen', tariffs: [{
+        id: 'short-rate', name: 'Kurz', v: {
+          grundgebuehr: 0, zeitpreis: 0.1, tagespreis: 100, wochenpreis: 1000,
+          kmBis100: 0.01, kmAb100: 0.01, anmeldegebuehr: 60, billingMode: 'time-and-distance'
+        }
+      }] }]
+    },
+    {
+      id: 'long', name: 'Langstrecke', classes: [{ id: 'klein', name: 'Kleinwagen', tariffs: [{
+        id: 'long-rate', name: 'Lang', v: {
+          grundgebuehr: 1, zeitpreis: 0, tagespreis: 50, wochenpreis: 100,
+          kmBis100: 1, kmAb100: 1, anmeldegebuehr: 0, billingMode: 'distance-with-packages'
+        }
+      }] }]
+    }
+  ];
+  app.state.location.byProvider.short = { stationCount: null, walkMinutes: null, source: 'unknown' };
+  app.state.location.byProvider.long = { stationCount: null, walkMinutes: null, source: 'unknown' };
+  app.state.selection = { providerId: 'short', classId: 'klein', tariffId: 'short-rate', recommendationMode: 'recommend-mix' };
+  const result = app.calculateRecommendation(app.state);
+  const assignments = result.recommendation.rows.map(function(row){ return row.providerId; });
+  assert.equal(JSON.stringify(assignments), JSON.stringify(['short', 'long']));
+  assert.ok(Math.abs(result.cambio.fix - 22) < 0.001);
+  assert.ok(Math.abs(result.cambio.total - 841.4) < 0.001);
+});
+
+test('recommendations exclude a provider with confirmed zero stations', function(){
+  const app = loadApplication();
+  app.state.selection.recommendationMode = 'recommend-single';
+  const firstResult = app.calculateRecommendation(app.state);
+  const excludedProviderId = firstResult.recommendation.primaryProviderId;
+  const excludedProvider = app.state.providers.find(function(provider){ return provider.id === excludedProviderId; });
+  if(excludedProvider.operationMode === 'free-floating'){
+    app.state.location.byProvider[excludedProviderId] = { stationCount: null, walkMinutes: null, serviceAvailable: false, source: 'manual' };
+  } else {
+    app.state.location.byProvider[excludedProviderId] = { stationCount: 0, walkMinutes: 0, serviceAvailable: null, source: 'manual' };
+  }
+  const nextResult = app.calculateRecommendation(app.state);
+  assert.notEqual(nextResult.recommendation.primaryProviderId, excludedProviderId);
+});
+
+test('recommendation reports no candidate when every provider is unavailable', function(){
+  const app = loadApplication();
+  app.state.providers.forEach(function(provider){
+    if(provider.operationMode === 'free-floating'){
+      app.state.location.byProvider[provider.id] = { stationCount: null, walkMinutes: null, serviceAvailable: false, source: 'manual' };
+    } else {
+      app.state.location.byProvider[provider.id] = { stationCount: 0, walkMinutes: 0, serviceAvailable: null, source: 'search' };
+    }
+  });
+  app.state.selection.recommendationMode = 'recommend-single';
+  assert.equal(app.calculateRecommendation(app.state), null);
+});
+
+test('free-floating providers use business-area availability instead of station counts', function(){
+  const app = loadApplication();
+  app.state.selection.recommendationMode = 'recommend-single';
+  app.state.location.byProvider.free2move = { stationCount: 0, walkMinutes: 0, serviceAvailable: true, source: 'manual' };
+  const availableResult = app.calculateRecommendation(app.state);
+  assert.equal(availableResult.recommendation.primaryProviderId, 'free2move');
+  app.state.location.byProvider.free2move.serviceAvailable = false;
+  const unavailableResult = app.calculateRecommendation(app.state);
+  assert.notEqual(unavailableResult.recommendation.primaryProviderId, 'free2move');
+});
+
+test('automatic family profile downranks free-floating without changing tariff costs', function(){
+  const app = loadApplication();
+  app.state.selection.recommendationMode = 'recommend-single';
+  app.state.usage.kindersitz = true;
+  const familyResult = app.calculateRecommendation(app.state);
+  const familyProvider = app.state.providers.find(function(provider){ return provider.id === familyResult.recommendation.primaryProviderId; });
+  assert.equal(familyProvider.operationMode, 'station-based');
+  assert.match(familyResult.recommendation.fitSummary, /Kindersitz/);
+
+  app.state.usage.freefloatingFit = 'suitable';
+  const overriddenResult = app.calculateRecommendation(app.state);
+  assert.equal(overriddenResult.recommendation.primaryProviderId, 'free2move');
+  app.state.selection = { providerId: 'free2move', classId: 'klein', tariffId: 'zeit', recommendationMode: 'manual' };
+  const directTariffResult = app.calculate(app.state);
+  assert.ok(Math.abs(overriddenResult.cambio.total - directTariffResult.cambio.total) < 0.001);
+});
+
+test('legacy selections default to manual mode before share validation', function(){
+  const app = loadApplication();
+  delete app.state.selection.recommendationMode;
+  app.normalizeSelection(app.state.selection);
+  assert.equal(app.state.selection.recommendationMode, 'manual');
+  assert.equal(app.isValidSharedState(app.state), true);
 });

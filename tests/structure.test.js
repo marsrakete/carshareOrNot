@@ -20,7 +20,8 @@ test('HTML loads separated assets in dependency order', function(){
   const html = readProjectFile('index.html');
   assert.match(html, /<link rel="stylesheet" href="styles\.css">/);
   assert.ok(html.indexOf('src="providers.js"') < html.indexOf('src="calculator.js"'));
-  assert.ok(html.indexOf('src="calculator.js"') < html.indexOf('src="app.js"'));
+  assert.ok(html.indexOf('src="calculator.js"') < html.indexOf('src="recommendations.js"'));
+  assert.ok(html.indexOf('src="recommendations.js"') < html.indexOf('src="app.js"'));
   assert.doesNotMatch(html, /<style>/);
   assert.doesNotMatch(html, /<script>([\s\S]*?)<\/script>/);
   assert.doesNotMatch(html, /\sstyle="/);
@@ -33,6 +34,9 @@ test('repeated interfaces use templates and safe rendering', function(){
   assert.match(html, /<template id="provider-block-template">/);
   assert.match(html, /<template id="tariff-row-template">/);
   assert.match(html, /<template id="trip-cost-row-template">/);
+  assert.match(html, /<template id="recommendation-row-template">/);
+  assert.match(html, /<template id="cost-composition-row-template">/);
+  assert.match(html, /<template id="scenario-card-template">/);
   assert.doesNotMatch(application, /\.innerHTML\s*=/);
   assert.match(application, /\.textContent = card\.title/);
 });
@@ -47,7 +51,7 @@ test('form controls and tabs expose accessible relationships', function(){
     'use_bringbuchungenprotag', 'use_bringstundenprobuchung', 'use_bringseparatanteil',
     'use_tagesausfluege', 'use_stundenproausflug', 'use_kmproausflug',
     'use_mehrtagesfahrten', 'use_tageprofahrt', 'use_kmprofahrt',
-    'use_urlaubsfahrten', 'use_tageprourlaub', 'use_kmprourlaub', 'loc_address', 'loc_count',
+    'use_urlaubsfahrten', 'use_tageprourlaub', 'use_kmprourlaub', 'use_freefloating_fit', 'loc_address', 'loc_count',
     'loc_walk', 'sel_provider', 'sel_class', 'sel_tariff'
   ];
   labelledControls.forEach(function(id){
@@ -69,6 +73,26 @@ test('tariffs contain billing and source metadata controls', function(){
   assert.match(html, /data-meta-field="lastVerifiedAt"/);
   assert.match(html, /data-meta-field="sourceUrl"/);
   assert.match(providers, /lastVerifiedAt/);
+  assert.match(providers, /operationMode: 'free-floating'/);
+});
+
+test('provider choice precedes provider-specific location controls', function(){
+  const html = readProjectFile('index.html');
+  assert.ok(html.indexOf('id="sel_provider"') < html.indexOf('id="station-location-fields"'));
+  assert.match(html, /id="free-floating-location-fields"/);
+  assert.match(html, /id="loc_freefloating"/);
+});
+
+test('usage scenarios provide compact selection and reversible actions', function(){
+  const html = readProjectFile('index.html');
+  const application = readProjectFile('app.js');
+  assert.match(html, /id="scenario-list"/);
+  assert.match(html, /id="scenario-undo-btn"/);
+  assert.match(html, /id="scenario-change-btn"/);
+  assert.match(application, /id: 'family-commute'/);
+  assert.match(application, /id: 'care-frequent'/);
+  assert.match(application, /id: 'single-parent-weekend'/);
+  assert.match(application, /function applyUsageScenario/);
 });
 
 test('tariff table remains reachable on narrow screens', function(){

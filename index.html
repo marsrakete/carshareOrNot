@@ -47,7 +47,7 @@
       <section class="panel">
 
         <div class="group">
-          <h2>Das eigene Auto</h2>
+          <h2 class="section-heading"><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14l1.8-5h12.4l1.8 5M3 14h18v5h-2v-2H5v2H3v-5Zm4 0h.01M17 14h.01"/></svg><span>Das eigene Auto</span></h2>
           <p class="hint">Gebrauchtwagen-Kauf und laufende Kosten</p>
 
           <div class="field-row"><label for="own_kaufpreis">Kaufpreis</label><input type="number" id="own_kaufpreis" min="0" step="100"></div>
@@ -68,17 +68,38 @@
         </div>
 
         <div class="group">
-          <h2>Deine Nutzung</h2>
+          <h2 class="section-heading"><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19c4-1 3-6 7-7s3-5 7-7M5 19h.01M19 5h.01M8 5l3 3-3 3"/></svg><span>Deine Nutzung</span></h2>
           <p class="hint">Wie viel und wie du unterwegs bist</p>
+
+          <section class="scenario-picker" aria-labelledby="scenario-picker-title">
+            <div id="scenario-browser">
+              <div class="scenario-heading-row">
+                <div>
+                  <h3 id="scenario-picker-title">Mit einem typischen Alltag starten</h3>
+                  <p>Die Vorlage füllt nur deine Nutzung aus. Alle Werte bleiben anschließend bearbeitbar.</p>
+                </div>
+                <button class="scenario-more-btn" id="scenario-more-btn" type="button" aria-expanded="false">Weitere Szenarien anzeigen</button>
+              </div>
+              <div class="scenario-list" id="scenario-list"></div>
+            </div>
+            <div class="scenario-status" id="scenario-status" role="status" hidden>
+              <strong id="scenario-status-text"></strong>
+              <div class="scenario-status-actions">
+                <button id="scenario-values-btn" type="button">Werte ansehen</button>
+                <button id="scenario-change-btn" type="button">Andere Vorlage</button>
+                <button id="scenario-undo-btn" type="button">Rückgängig</button>
+              </div>
+            </div>
+          </section>
 
           <div class="field-row"><label for="use_jahreskm">Fahrleistung <span class="unit">km/Jahr</span></label><input type="number" id="use_jahreskm" min="0" step="100"></div>
           <div class="field-row"><label for="use_vergleichsjahre">Betrachtungszeitraum für einmalige Gebühren <span class="unit">Jahre</span></label><input type="number" id="use_vergleichsjahre" min="1" step="1"></div>
 
-          <h3 class="usage-category-title">Alltagsfahrten</h3>
+          <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11"/></svg><span>Alltagsfahrten</span></h3>
           <div class="field-row"><label for="use_kurzfahrten">Alltagsfahrten <span class="unit">Anzahl/Monat</span></label><input type="number" id="use_kurzfahrten" min="0" step="1"></div>
           <div class="field-row"><label for="use_stundenprofahrt">Ø Dauer je Alltagsfahrt <span class="unit">Stunden</span></label><input type="number" id="use_stundenprofahrt" min="0" step="0.5"></div>
 
-          <h3 class="usage-category-title">Bring- und Abholfahrten</h3>
+          <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20v-8h8v8M6 10l6-6 6 6M10 15h4"/></svg><span>Bring- und Abholfahrten</span></h3>
           <p class="hint usage-category-hint">Regelmäßige Fahrten zu Schule, Kita, Training oder anderen festen Terminen.</p>
           <div class="field-row"><label for="use_bringtageprowoche">Bring-/Abholtage <span class="unit">Tage/Woche</span></label><input type="number" id="use_bringtageprowoche" min="0" max="7" step="1"></div>
           <div class="field-row"><label for="use_bringwochenprojahr">Aktive Wochen <span class="unit">Wochen/Jahr</span></label><input type="number" id="use_bringwochenprojahr" min="0" max="52" step="1"></div>
@@ -92,17 +113,17 @@
             <label class="switch"><input type="checkbox" id="use_kindersitz" aria-labelledby="child-seat-label"><span class="slider"></span></label>
           </div>
 
-          <h3 class="usage-category-title">Tagesausflüge</h3>
+          <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span>Tagesausflüge</span></h3>
           <div class="field-row"><label for="use_tagesausfluege">Tagesausflüge <span class="unit">Anzahl/Jahr</span></label><input type="number" id="use_tagesausfluege" min="0" step="1"></div>
           <div class="field-row"><label for="use_stundenproausflug">Ø Dauer je Tagesausflug <span class="unit">Stunden</span></label><input type="number" id="use_stundenproausflug" min="0" step="0.5"></div>
           <div class="field-row"><label for="use_kmproausflug">Ø Strecke je Tagesausflug <span class="unit">km</span></label><input type="number" id="use_kmproausflug" min="0" step="10"></div>
 
-          <h3 class="usage-category-title">Wochenend- und Mehrtagesfahrten</h3>
+          <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="14" rx="2"/><path d="M8 3v6M16 3v6M4 11h16"/></svg><span>Wochenend- und Mehrtagesfahrten</span></h3>
           <div class="field-row"><label for="use_mehrtagesfahrten">Mehrtägige Fahrten <span class="unit">Anzahl/Jahr</span></label><input type="number" id="use_mehrtagesfahrten" min="0" step="1"></div>
           <div class="field-row"><label for="use_tageprofahrt">Ø Dauer je Mehrtagesfahrt <span class="unit">Tage</span></label><input type="number" id="use_tageprofahrt" min="0" step="1"></div>
           <div class="field-row"><label for="use_kmprofahrt">Ø Strecke je Mehrtagesfahrt <span class="unit">km</span></label><input type="number" id="use_kmprofahrt" min="0" step="10"></div>
 
-          <h3 class="usage-category-title">Urlaubsfahrten</h3>
+          <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="7" width="14" height="13" rx="2"/><path d="M9 7V4h6v3M9 11v5M15 11v5"/></svg><span>Urlaubsfahrten</span></h3>
           <div class="field-row"><label for="use_urlaubsfahrten">Urlaubsfahrten <span class="unit">Anzahl/Jahr</span></label><input type="number" id="use_urlaubsfahrten" min="0" step="1"></div>
           <div class="field-row"><label for="use_tageprourlaub">Ø Dauer je Urlaubsfahrt <span class="unit">Tage</span></label><input type="number" id="use_tageprourlaub" min="0" step="1"></div>
           <div class="field-row"><label for="use_kmprourlaub">Ø Strecke je Urlaubsfahrt <span class="unit">km</span></label><input type="number" id="use_kmprourlaub" min="0" step="50"></div>
@@ -114,27 +135,20 @@
             <label class="radio-option"><input type="radio" name="flex" value="teilweise"> Teilweise planbar &ndash; meist ein bis zwei Tage vorher</label>
             <label class="radio-option"><input type="radio" name="flex" value="planbar"> Gut planbar &ndash; Fahrten stehen meist früh fest</label>
           </fieldset>
-        </div>
-
-        <div class="group">
-          <h2>Standort &amp; Verfügbarkeit</h2>
-          <p class="hint">Wie gut du in der Nähe an ein Carsharing-Auto kommst, beeinflusst, wie flexibel du damit bist.</p>
-
-          <div class="loc-row">
-            <label class="sr-only" for="loc_address">Adresse für die Stationssuche</label>
-            <input type="text" id="loc_address" placeholder="Adresse, z. B. Straße, PLZ Ort">
-            <button class="loc-search-btn" id="loc-search-btn" type="button">Stationen suchen</button>
+          <div class="preference-field">
+            <label for="use_freefloating_fit">Wie gut passt Free-Floating zu deinem Alltag?</label>
+            <select id="use_freefloating_fit">
+              <option value="auto">Automatisch aus meinen Angaben</option>
+              <option value="suitable">Gut geeignet</option>
+              <option value="supplement">Nur als Ergänzung</option>
+              <option value="unsuitable">Eher ungeeignet</option>
+            </select>
+            <p class="hint" id="freefloating-fit-hint"></p>
           </div>
-          <p class="loc-status" id="loc_status"></p>
-          <p class="loc-source">Automatischer Versuch über OpenStreetMap &ndash; das klappt nicht in jeder Umgebung und liefert dann keine Werte. Trag die Zahlen notfalls einfach von Hand ein, das ist der verlässliche Weg.</p>
-
-          <div class="field-row"><label for="loc_count">Stationen im Umkreis <span class="unit" id="loc-provider-label-count">für Cambio</span></label><input type="number" id="loc_count" min="0" step="1"></div>
-          <div class="field-row"><label for="loc_walk">Gehzeit zur nächsten Station <span class="unit" id="loc-provider-label-walk">für Cambio, Min.</span></label><input type="number" id="loc_walk" min="0" step="1"></div>
-          <p class="hint location-values-hint">Diese beiden Werte gelten jeweils für den unten ausgewählten Anbieter &ndash; wechselst du den Anbieter, wechseln auch diese Zahlen (getrennt gespeichert, je Anbieter neu eintragbar).</p>
         </div>
 
         <div class="group">
-          <h2>Carsharing-Tarif</h2>
+          <h2 class="section-heading"><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10l6 6-7 7-9-9V7Zm5 4h.01"/></svg><span>Carsharing-Tarif</span></h2>
           <p class="hint">Anbieter, Fahrzeugklasse und Tarifmodell für den Vergleich</p>
           <div class="select-row" id="provider-select-row">
             <div><label for="sel_provider">Anbieter</label><select id="sel_provider"></select></div>
@@ -145,6 +159,35 @@
           </div>
         </div>
 
+        <div class="group">
+          <h2 class="section-heading"><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Zm0-8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg><span>Standort &amp; Verfügbarkeit</span></h2>
+          <p class="hint" id="location-context-hint">Die Prüfung richtet sich nach dem oben ausgewählten Anbieter.</p>
+
+          <div id="station-location-fields">
+            <div class="loc-row">
+              <label class="sr-only" for="loc_address">Adresse für die Stationssuche</label>
+              <input type="text" id="loc_address" placeholder="Adresse, z. B. Straße, PLZ Ort">
+              <button class="loc-search-btn" id="loc-search-btn" type="button">Stationen suchen</button>
+            </div>
+            <p class="loc-source">Automatischer Versuch über OpenStreetMap. Trag Stationszahl und Gehzeit bei Bedarf von Hand ein.</p>
+            <div class="field-row"><label for="loc_count">Stationen im Umkreis <span class="unit" id="loc-provider-label-count">für Cambio</span></label><input type="number" id="loc_count" min="0" step="1"></div>
+            <div class="field-row"><label for="loc_walk">Gehzeit zur nächsten Station <span class="unit" id="loc-provider-label-walk">für Cambio, Min.</span></label><input type="number" id="loc_walk" min="0" step="1"></div>
+            <p class="hint location-values-hint">Diese Werte werden getrennt je stationsbasiertem Anbieter gespeichert.</p>
+          </div>
+
+          <div class="free-floating-location" id="free-floating-location-fields" hidden>
+            <p><strong id="loc-freefloating-provider"></strong> ist ein Free-Floating-Angebot. Fahrzeuge stehen verteilt im Geschäftsgebiet und werden über die Anbieter-App gefunden.</p>
+            <label for="loc_freefloating">Liegt dein Standort im Geschäftsgebiet?</label>
+            <select id="loc_freefloating">
+              <option value="unknown">Noch nicht geprüft</option>
+              <option value="yes">Ja, Anbieter ist verfügbar</option>
+              <option value="no">Nein, nicht verfügbar</option>
+            </select>
+            <p class="hint">Bitte prüfe Geschäftsgebiet und aktuelle Fahrzeugverfügbarkeit direkt in der App. Eine OSM-Stationssuche wäre hier irreführend.</p>
+          </div>
+          <p class="loc-status" id="loc_status" role="status"></p>
+        </div>
+
         <button class="reset-link" id="reset-btn" type="button">Eigene Angaben zurücksetzen</button>
         <div class="save-status" id="save-status"></div>
       </section>
@@ -153,6 +196,12 @@
         <p class="eyebrow">Kostenunterschied pro Jahr</p>
         <p class="headline-figure" id="headline-figure">&ndash;</p>
         <p class="headline-sub" id="headline-sub"></p>
+
+        <section class="recommendation-panel" id="recommendation-panel" aria-labelledby="recommendation-title" hidden>
+          <h2 id="recommendation-title"></h2>
+          <p id="recommendation-basis"></p>
+          <div id="recommendation-list"></div>
+        </section>
 
         <div class="bars" aria-hidden="true">
           <div class="bar-row">
@@ -176,6 +225,12 @@
             <tr><td>Gesamt pro Jahr</td><td id="row-total-own">&ndash;</td><td id="row-total-cambio">&ndash;</td></tr>
           </tbody>
         </table>
+
+        <section class="cost-composition" aria-labelledby="cost-composition-title">
+          <h2 id="cost-composition-title">Woraus sich die Kosten zusammensetzen</h2>
+          <div id="cost-composition-bars"></div>
+          <div class="cost-legend" aria-hidden="true"><span class="legend-fix">Fixkosten</span><span class="legend-time">Fahrzeit / Kraftstoff</span><span class="legend-distance">Kilometer</span></div>
+        </section>
 
         <section class="trip-breakdown" aria-labelledby="trip-breakdown-title">
           <h2 id="trip-breakdown-title">Carsharing nach Fahrtart</h2>
@@ -231,6 +286,14 @@
 
 </div>
 
+<svg class="svg-symbols" aria-hidden="true">
+  <symbol id="scenario-icon-family" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20v-2a5 5 0 0 1 10 0v2M14 20v-1.5a4 4 0 0 1 7 0V20"/></symbol>
+  <symbol id="scenario-icon-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8M5 10v10h14V10M9 20v-6h6v6"/></symbol>
+  <symbol id="scenario-icon-care" viewBox="0 0 24 24"><path d="M12 21S4 16 4 10a4 4 0 0 1 7-2.6A4 4 0 0 1 20 10c0 6-8 11-8 11Z"/><path d="M12 9v6M9 12h6"/></symbol>
+  <symbol id="scenario-icon-commute" viewBox="0 0 24 24"><path d="M4 16V8h16v8M6 16h12M7 8l2-4h6l2 4M7 16v3M17 16v3M8 12h.01M16 12h.01"/></symbol>
+  <symbol id="scenario-icon-route" viewBox="0 0 24 24"><path d="M5 19c4-1 3-6 7-7s3-5 7-7M5 19h.01M19 5h.01M8 5l3 3-3 3"/></symbol>
+</svg>
+
 <template id="insight-card-template">
   <div class="insight-card">
     <span class="insight-title"></span>
@@ -238,10 +301,38 @@
   </div>
 </template>
 
+<template id="scenario-card-template">
+  <article class="scenario-card">
+    <svg class="scenario-card-icon" viewBox="0 0 24 24" aria-hidden="true"><use class="scenario-icon-use"></use></svg>
+    <h4 class="scenario-title"></h4>
+    <p class="scenario-summary"></p>
+    <button class="scenario-apply" type="button">Werte übernehmen</button>
+  </article>
+</template>
+
 <template id="trip-cost-row-template">
   <div class="trip-cost-row">
     <span class="trip-cost-label"></span>
     <strong class="trip-cost-value"></strong>
+  </div>
+</template>
+
+<template id="recommendation-row-template">
+  <div class="recommendation-row">
+    <span class="recommendation-label"></span>
+    <span class="recommendation-detail"></span>
+    <strong class="recommendation-cost"></strong>
+  </div>
+</template>
+
+<template id="cost-composition-row-template">
+  <div class="cost-composition-row">
+    <div class="cost-composition-label"><span class="cost-composition-name"></span><strong class="cost-composition-total"></strong></div>
+    <div class="cost-stack" role="img">
+      <span class="cost-segment segment-fix"></span>
+      <span class="cost-segment segment-time"></span>
+      <span class="cost-segment segment-distance"></span>
+    </div>
   </div>
 </template>
 
@@ -299,6 +390,7 @@
 
 <script src="providers.js"></script>
 <script src="calculator.js"></script>
+<script src="recommendations.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

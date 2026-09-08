@@ -64,7 +64,7 @@
       tagesausfluege: 0, stundenproausflug: 8, kmproausflug: 120,
       mehrtagesfahrten: 3, tageprofahrt: 3, kmprofahrt: 250,
       urlaubsfahrten: 0, tageprourlaub: 7, kmprourlaub: 900,
-      flex: 'teilweise', parkplatz: false
+      flex: 'teilweise', freefloatingFit: 'auto', parkplatz: false
     };
   }
   /**
@@ -91,7 +91,7 @@
   function defaultProviders(){
     var providers = [
       {
-        id: 'cambio', name: 'Cambio',
+        id: 'cambio', name: 'Cambio', operationMode: 'station-based',
         classes: [
           { id: 'klein', name: 'Kleinwagen', tariffs: [
               { id: 'aktiv', name: 'Aktiv (mit Grundgebühr)', v: tariff(10, 1.70, 21.00, 0.23, 0.16, 30) },
@@ -109,7 +109,7 @@
       },
       {
         // Reiner Kilometertarif, kein Zeitpreis: "zeitpreis" bleibt 0, Tagespreis gilt als Paketpreis für Mehrtagesfahrten
-        id: 'miles', name: 'Miles',
+        id: 'miles', name: 'Miles', operationMode: 'free-floating',
         classes: [
           { id: 'klein', name: 'Kleinwagen (S)', tariffs: [
               { id: 'km', name: 'Kilometertarif', v: tariff(0, 0, 45.00, 0.99, 0.19, 0) }
@@ -124,7 +124,7 @@
       },
       {
         // Reiner Zeittarif (Minuten/Stunden/Tag), Kilometer weitgehend im Paket inklusive
-        id: 'free2move', name: 'Free2move (vormals Share Now)',
+        id: 'free2move', name: 'Free2move (vormals Share Now)', operationMode: 'free-floating',
         classes: [
           { id: 'klein', name: 'Kleinwagen', tariffs: [
               { id: 'zeit', name: 'Minuten-/Stunden-/Tagestarif', v: tariff(0, 7.00, 20.50, 0, 0, 0) }
@@ -135,7 +135,7 @@
         ]
       },
       {
-        id: 'flinkster', name: 'Flinkster',
+        id: 'flinkster', name: 'Flinkster', operationMode: 'station-based',
         classes: [
           { id: 'klein', name: 'Kleinwagen (Mini)', tariffs: [
               { id: 'bundesweit', name: 'Bundesweiter Tarif (ohne Grundgebühr)', v: tariff(0, 2.30, 39.00, 0.18, 0.18, 0) }
@@ -150,7 +150,7 @@
       },
       {
         // Stationsbasiert wie Cambio/Flinkster, regional unterschiedliche Gesellschaften (hier: bundesweiter Richtwert)
-        id: 'stadtmobil', name: 'Stadtmobil',
+        id: 'stadtmobil', name: 'Stadtmobil', operationMode: 'station-based',
         classes: [
           { id: 'klein', name: 'Kleinwagen', tariffs: [
               { id: 'vorteil', name: 'Vorteil (mit Grundgebühr)', v: tariff(10, 1.80, 22.00, 0.22, 0.18, 30) },
@@ -168,7 +168,7 @@
       },
       {
         // Freefloating wie Miles/Free2move: Minuten-/Stunden-/Tagespreis, Kilometer weitgehend inklusive
-        id: 'sixtshare', name: 'Sixt Share',
+        id: 'sixtshare', name: 'Sixt Share', operationMode: 'free-floating',
         classes: [
           { id: 'klein', name: 'Kleinwagen', tariffs: [
               { id: 'zeit', name: 'Minuten-/Stunden-/Tagestarif', v: tariff(0, 8.00, 29.00, 0, 0, 0) }
@@ -207,6 +207,12 @@
     var defaults = defaultProviders();
     providers.forEach(function(provider){
       var defaultProvider = defaults.find(function(candidate){ return candidate.id === provider.id; });
+      if(provider.operationMode !== 'station-based' && provider.operationMode !== 'free-floating'){
+        provider.operationMode = 'station-based';
+        if(defaultProvider){
+          provider.operationMode = defaultProvider.operationMode;
+        }
+      }
       provider.classes.forEach(function(cls){
         cls.tariffs.forEach(function(selectedTariff){
           var values = selectedTariff.v;
