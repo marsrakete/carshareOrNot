@@ -5,6 +5,20 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const zlib = require('node:zlib');
+
+/**
+ * Creates a file-like JSON import object with its UTF-8 byte size.
+ * @param {Object} value - Value to serialize as JSON.
+ * @returns {Object} File-like object accepted by the import helper.
+ */
+function createImportFile(value){
+  const text = JSON.stringify(value);
+  return {
+    size: new TextEncoder().encode(text).byteLength,
+    text: async function(){ return text; }
+  };
+}
 
 /**
  * Creates a minimal DOM element used while loading the browser script in Node.js.
@@ -37,6 +51,7 @@ function loadApplication(){
   const recommendationsScript = fs.readFileSync(recommendationsPath, 'utf8');
   const exposedScript = fs.readFileSync(applicationPath, 'utf8').replace(
     /\n\s*init\(\);/,
+    '\nglobalThis.__validationApi = { preventNegativeNumberEntry, validateNumberEntry, importProviderFile };' +
     '\nglobalThis.__testApi = { state: state, calculate: calculate, calculateRecommendation: recommendationData.calculateRecommendation, defaultUsage: defaultUsage, defaultLocationForProvider: defaultLocationForProvider, normalizeTariffData: normalizeTariffData, normalizeSelection: normalizeSelection, encodeSharePayload: encodeSharePayload, decodeSharePayload: decodeSharePayload, isValidSharedState: isValidSharedState, buildProviderExport: buildProviderExport, createCompactShareState: createCompactShareState, expandCompactShareState: expandCompactShareState, getLocationProvider: getLocationProvider };'
   );
   const element = createElementStub();
@@ -65,13 +80,155 @@ function loadApplication(){
   };
   context.globalThis = context;
   vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'identifier-validation.js'), 'utf8'), context);
+  context.window.CarshareIdentifiers = context.CarshareIdentifiers;
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'data-limits.js'), 'utf8'), context);
+  context.window.CarshareLimits = context.CarshareLimits;
   vm.runInContext(providerDataScript, context);
   vm.runInContext(providersScript, context);
   vm.runInContext(calculatorScript, context);
   vm.runInContext(recommendationsScript, context);
   vm.runInContext(exposedScript, context);
+  Object.assign(context.__testApi, context.__validationApi);
+  context.__testApi.alerts = [];
+  context.window.alert = function(message){ context.__testApi.alerts.push(message); };
   return context.__testApi;
 }
+
+test('numeric controls reject minus signs from keyboards, paste and drop', function(){
+  const app = loadApplication();
+  for(const event of [
+    { key: '-' }, { data: '−12' },
+    { clipboardData: { getData: function(){ return '-25'; } } },
+    { dataTransfer: { getData: function(){ return '-5'; } } }
+  ]){
+    var blocked = false;
+    event.target = { type: 'number' };
+    event.preventDefault = function(){ blocked = true; };
+    app.preventNegativeNumberEntry(event);
+    assert.equal(blocked, true);
+  }
+  app.preventNegativeNumberEntry({ target: { type: 'text' }, key: '-', preventDefault: function(){ assert.fail('Text fields must accept hyphens'); } });
+});
+
+test('numeric fallback enforces bounds and preserves blank location fields and decimals', function(){
+  const app = loadApplication();
+  for(const entry of [
+    { value: '-12', min: '0', max: '', expected: '0' },
+    { value: '-1', min: '1', max: '', expected: '1' },
+    { value: '8', min: '0', max: '7', expected: '7' },
+    { value: '', min: '0', max: '', expected: '' },
+    { value: '0.25', min: '0', max: '', expected: '0.25' }
+  ]){
+    const input = Object.assign({ type: 'number' }, entry);
+    app.validateNumberEntry({ target: input });
+    assert.equal(input.value, entry.expected);
+  }
+});
+
+test('provider import refuses every negative tariff price without changing state', async function(){
+  const app = loadApplication();
+  const original = JSON.stringify(app.state);
+  for(const field of ['grundgebuehr', 'zeitpreis', 'tagespreis', 'wochenpreis', 'kmBis100', 'kmAb100', 'anmeldegebuehr']){
+    const exported = app.buildProviderExport(app.state.providers[0]);
+    exported.provider.classes[0].tariffs[0][field] = -0.01;
+    await app.importProviderFile(createImportFile(exported));
+    assert.equal(JSON.stringify(app.state), original);
+    assert.match(app.alerts.pop(), /Import abgelehnt/);
+  }
+});
+
+test('share validation refuses negative numbers in all numeric sections', function(){
+  const app = loadApplication();
+  for(const section of [app.state.own, app.state.usage, app.state.providers[0].classes[0].tariffs[0].v, app.state.location.byProvider.cambio]){
+    for(const field of Object.keys(section)){
+      const original = section[field];
+      if(typeof original !== 'number' && original !== null){ continue; }
+      section[field] = -1;
+      assert.equal(app.isValidSharedState(app.state), false, field);
+      section[field] = original;
+    }
+  }
+});
+
+test('numeric overflow inputs are bounded before calculation', function(){
+  const app = loadApplication();
+  Object.keys(app.state.own).forEach(function(field){ app.state.own[field] = Number.MAX_VALUE; });
+  Object.keys(app.state.usage).forEach(function(field){
+    if(typeof app.state.usage[field] === 'number'){
+      app.state.usage[field] = Number.MAX_VALUE;
+    }
+  });
+  const tariffValues = app.state.providers[0].classes[0].tariffs[0].v;
+  Object.keys(tariffValues).forEach(function(field){
+    if(typeof tariffValues[field] === 'number'){
+      tariffValues[field] = Number.MAX_VALUE;
+    }
+  });
+  const result = app.calculate(app.state);
+  assert.equal(Number.isFinite(result.own.total), true);
+  assert.equal(Number.isFinite(result.cambio.total), true);
+  assert.equal(app.isValidSharedState(app.state), false);
+});
+
+test('share validation rejects reserved IDs and duplicates in every identifier scope', function(){
+  const app = loadApplication();
+  const original = JSON.stringify(app.state);
+  for(const id of ['__proto__', 'constructor', 'prototype', 'tostring', 'recommend-single', 'recommend-mix', 'supplement-taxi', '', 'a|b', 'a=b', 'A', 'a'.repeat(65)]){
+    Object.assign(app.state, JSON.parse(original));
+    app.state.providers[0].id = id;
+    assert.equal(app.isValidSharedState(app.state), false, id);
+    Object.assign(app.state, JSON.parse(original));
+    Object.defineProperty(app.state.location.byProvider, id, { value: { stationCount: null, walkMinutes: null }, enumerable: true });
+    assert.equal(app.isValidSharedState(app.state), false, 'location: ' + id);
+  }
+  for(const scope of ['providers', 'classes', 'tariffs']){
+    Object.assign(app.state, JSON.parse(original));
+    let collection = app.state.providers;
+    if(scope === 'classes'){ collection = collection[0].classes; }
+    if(scope === 'tariffs'){ collection = collection[0].classes[0].tariffs; }
+    collection.push(JSON.parse(JSON.stringify(collection[0])));
+    assert.equal(app.isValidSharedState(app.state), false, scope);
+  }
+});
+
+test('compact links reject duplicate overrides before merging them', function(){
+  const app = loadApplication();
+  const compact = app.createCompactShareState();
+  compact.providerOverrides = [app.state.providers[0], app.state.providers[0]];
+  assert.throws(function(){ app.expandCompactShareState(compact); }, /provider-identifiers/);
+  compact.providerOverrides = [];
+  compact.removedProviderIds = ['__proto__'];
+  assert.throws(function(){ app.expandCompactShareState(compact); }, /provider-identifiers/);
+});
+
+test('provider imports with reserved or duplicate identifiers leave state untouched', async function(){
+  const app = loadApplication();
+  const original = JSON.stringify(app.state);
+  for(const kind of ['reserved', 'classes', 'tariffs']){
+    const exported = app.buildProviderExport(app.state.providers[0]);
+    if(kind === 'reserved'){
+      exported.provider.id = '__proto__';
+    } else if(kind === 'classes'){
+      exported.provider.classes.push(exported.provider.classes[0]);
+    } else {
+      exported.provider.classes[0].tariffs.push(exported.provider.classes[0].tariffs[0]);
+    }
+    await app.importProviderFile(createImportFile(exported));
+    assert.equal(JSON.stringify(app.state), original);
+    assert.match(app.alerts.pop(), /kennungen/);
+  }
+});
+
+test('shared identifier rules accept shipped definitions and reject duplicate build data', function(){
+  const identifiers = require('../identifier-validation.js');
+  const app = loadApplication();
+  const definitions = app.state.providers.map(function(provider){ return app.buildProviderExport(provider).provider; });
+  assert.equal(identifiers.hasValidProviderIdentifiers(definitions), true);
+  definitions.push(definitions[0]);
+  assert.equal(identifiers.hasValidProviderIdentifiers(definitions), false);
+  assert.equal(identifiers.isValidProviderId('book-n-drive_2'), true);
+});
 
 test('default comparison remains stable', function(){
   const app = loadApplication();
@@ -87,6 +244,20 @@ test('additional owned-car miscellaneous cost starts at zero and affects fixed c
   const changed = app.calculate(app.state);
   assert.equal(baseline.own.fix + 125, changed.own.fix);
   assert.equal(baseline.own.total + 125, changed.own.total);
+});
+
+test('negative owned-car values cannot produce income in either parking mode', function(){
+  const app = loadApplication();
+  Object.keys(app.state.own).forEach(function(field){ app.state.own[field] = -100; });
+  const original = JSON.stringify(app.state.own);
+  for(const rentedParking of [false, true]){
+    app.state.usage.parkplatz = rentedParking;
+    const result = app.calculate(app.state);
+    assert.equal(result.own.total, 0);
+    assert.equal(result.own.fix, 0);
+    assert.equal(result.own.fuel, 0);
+  }
+  assert.equal(JSON.stringify(app.state.own), original);
 });
 
 test('provider export uses the maintainable versioned JSON format', function(){
@@ -257,6 +428,44 @@ test('share payload round-trips every setting and rejects incomplete state', asy
   assert.equal(app.isValidSharedState(wrapper.state), true);
   delete wrapper.state.usage.jahreskm;
   assert.equal(app.isValidSharedState(wrapper.state), false);
+});
+
+test('share payloads enforce link and decompressed data limits', async function(){
+  const app = loadApplication();
+  await assert.rejects(
+    app.encodeSharePayload({ padding: 'x'.repeat(100000) }),
+    /share-size/
+  );
+  const expandedWrapper = JSON.stringify({ version: 2, state: { padding: 'x'.repeat(100000) } });
+  const compressed = zlib.gzipSync(expandedWrapper);
+  const payload = 'g.' + compressed.toString('base64url');
+  assert.ok(payload.length < 16384);
+  await assert.rejects(app.decodeSharePayload(payload), /share-size/);
+  await assert.rejects(app.decodeSharePayload('j.' + 'a'.repeat(16384)), /share-format/);
+});
+
+test('provider imports reject oversized files and provider structures before state changes', async function(){
+  const app = loadApplication();
+  const original = JSON.stringify(app.state);
+  await app.importProviderFile({
+    size: 131073,
+    text: async function(){ assert.fail('Large files must not be read.'); }
+  });
+  assert.equal(JSON.stringify(app.state), original);
+  assert.match(app.alerts.pop(), /128 KB/);
+
+  const exported = app.buildProviderExport(app.state.providers[0]);
+  const originalClass = exported.provider.classes[0];
+  exported.provider.classes = [];
+  for(let index = 0; index < 21; index += 1){
+    const providerClass = JSON.parse(JSON.stringify(originalClass));
+    providerClass.id = 'klasse' + index;
+    providerClass.tariffs[0].id = 'tarif' + index;
+    exported.provider.classes.push(providerClass);
+  }
+  await app.importProviderFile(createImportFile(exported));
+  assert.equal(JSON.stringify(app.state), original);
+  assert.match(app.alerts.pop(), /höchstens 20 Fahrzeugklassen/);
 });
 
 test('compact share state omits unchanged default providers and restores overrides', function(){

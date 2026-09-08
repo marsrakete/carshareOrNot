@@ -4,6 +4,37 @@
   var providerData = global.CarshareData;
   var BILLING_DISTANCE_WITH_PACKAGES = providerData.BILLING_DISTANCE_WITH_PACKAGES;
   var BILLING_TIME_WITH_INCLUDED_DISTANCE = providerData.BILLING_TIME_WITH_INCLUDED_DISTANCE;
+  var limits = global.CarshareLimits;
+
+  /**
+   * Creates a bounded copy of usage settings before arithmetic starts.
+   * @param {Object} values - User or persisted usage settings.
+   * @returns {Object} Usage settings with finite non-negative numeric fields.
+   */
+  function normalizeUsage(values){
+    var normalized = providerData.defaultUsage();
+    Object.keys(normalized).forEach(function(field){
+      if(typeof normalized[field] === 'number'){
+        normalized[field] = limits.clampNumber(values[field], normalized[field]);
+      } else if(typeof values[field] !== 'undefined'){
+        normalized[field] = values[field];
+      }
+    });
+    return normalized;
+  }
+
+  /**
+   * Creates a bounded copy of tariff prices before arithmetic starts.
+   * @param {Object} values - Selected tariff values.
+   * @returns {Object} Tariff values with finite non-negative numeric prices.
+   */
+  function normalizeTariffValues(values){
+    var normalized = Object.assign({}, values);
+    ['grundgebuehr', 'zeitpreis', 'tagespreis', 'wochenpreis', 'kmBis100', 'kmAb100', 'anmeldegebuehr'].forEach(function(field){
+      normalized[field] = limits.clampNumber(values[field], 0);
+    });
+    return normalized;
+  }
 
   /**
    * Finds a provider in a supplied collection.
@@ -41,7 +72,7 @@
    * @returns {Object} Cost comparison and calculation metadata.
    */
   function calculate(currentState){
-    var o = currentState.own, u = currentState.usage;
+    var o = providerData.normalizeOwn(currentState.own), u = normalizeUsage(currentState.usage);
     var years = Math.max(o.haltedauer, 1);
     var comparisonYears = Math.max(u.vergleichsjahre, 1);
     var jahreskm = Math.max(u.jahreskm, 0);
@@ -85,7 +116,7 @@
     };
 
     if(selectedTariff){
-      var v = selectedTariff.v;
+      var v = normalizeTariffValues(selectedTariff.v);
 
       /**
        * Calculates the time charge for one booking lasting one or more days.

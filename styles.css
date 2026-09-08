@@ -85,8 +85,10 @@
     margin-top: 32px;
     align-items: start;
   }
+  .layout > *, .select-row > *, .decision-metrics > *{ min-width: 0; }
+  .panel select, .panel input{ min-width: 0; max-width: 100%; }
   @media (max-width: 1020px){
-    .layout{ grid-template-columns: 1fr; }
+    .layout{ grid-template-columns: minmax(0,1fr); }
   }
 
   section.panel{ padding-bottom: 8px; }
@@ -138,7 +140,16 @@
     font-weight: 700;
     cursor: pointer;
   }
-  .scenario-more-btn{ flex: 0 0 auto; }
+  .scenario-more-btn{
+    display: block;
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-s);
+    background: var(--green-soft);
+  }
+  .scenario-more-btn:hover{ border-color: var(--green); }
   .scenario-list{ display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
   .scenario-card{
     display: grid;
@@ -265,7 +276,7 @@
     font-size: 14px;
     color: var(--ink);
   }
-  .select-row{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 8px 0 16px; }
+  .select-row{ display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding: 8px 0 16px; }
   .select-row > div label{ display:block; font-size: 12.5px; color: var(--ink-soft); margin-bottom: 5px; }
   .free-floating-location{
     padding: 14px 15px;
@@ -549,6 +560,17 @@
 
   @media (max-width: 520px){
     .app{ padding-inline: 18px; }
+    .select-row{ grid-template-columns: minmax(0,1fr); }
+    .field-row{ grid-template-columns: minmax(0,1fr) minmax(80px,30%); }
+    .tariff-actions{ flex-direction: column; }
+    .uncertainty-range p{ flex-wrap: wrap; gap: 2px 12px; }
+    .kv-table{ table-layout: fixed; overflow-wrap: anywhere; }
+    .kv-table th:nth-child(3), .kv-table td:nth-child(3){ white-space: normal; }
+    .disclaimer, .copyright-notice{
+      margin-inline: -10px;
+      padding-inline: 12px;
+      overflow-wrap: anywhere;
+    }
     .results{ padding: 22px 18px 20px; }
     .recommendation-row{ grid-template-columns: minmax(0,1fr) auto; }
     .recommendation-detail{ grid-column: 1 / -1; grid-row: 2; }
@@ -557,14 +579,9 @@
     .decision-metrics{ grid-template-columns: 1fr; }
     .scenario-heading-row{ align-items: flex-start; flex-direction: column; gap: 7px; }
     .scenario-list{
-      display: flex;
-      gap: 10px;
-      margin-right: -18px;
-      padding-right: 18px;
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
+      grid-template-columns: minmax(0,1fr);
     }
-    .scenario-card{ flex: 0 0 min(82vw,280px); scroll-snap-align: start; }
+    .scenario-list:not(.is-expanded) .scenario-card:nth-child(n+4){ display: none; }
     .scenario-status{ align-items: flex-start; flex-direction: column; }
     .scenario-status-actions{ justify-content: flex-start; }
     .kv-table{ font-size: 12.5px; }

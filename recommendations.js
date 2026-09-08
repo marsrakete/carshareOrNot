@@ -326,7 +326,7 @@
     if(Array.isArray(candidate.allowedCategories) && candidate.allowedCategories.indexOf(categoryDefinition.key) === -1){
       return null;
     }
-    var selectedByProvider = Object.assign({}, portfolio.selectedByProvider);
+    var selectedByProvider = Object.assign(Object.create(null), portfolio.selectedByProvider);
     var existingTariff = selectedByProvider[candidate.providerId];
     if(existingTariff && existingTariff !== candidate.id){
       return null;
@@ -559,7 +559,7 @@
     }
 
     var portfolios = new Map();
-    portfolios.set('', { selectedByProvider: {}, fixedCost: 0, variableCost: 0, score: 0, state: state, assignments: [] });
+    portfolios.set('', { selectedByProvider: Object.create(null), fixedCost: 0, variableCost: 0, score: 0, state: state, assignments: [] });
     for(var categoryIndex = 0; categoryIndex < activeDefinitions.length; categoryIndex += 1){
       var nextPortfolios = new Map();
       var categoryDefinition = activeDefinitions[categoryIndex];

@@ -79,9 +79,9 @@
                   <h3 id="scenario-picker-title">Mit einem typischen Alltag starten</h3>
                   <p>Die Vorlage füllt nur deine Nutzung aus. Alle Werte bleiben anschließend bearbeitbar.</p>
                 </div>
-                <button class="scenario-more-btn" id="scenario-more-btn" type="button" aria-expanded="false">Weitere Szenarien anzeigen</button>
               </div>
               <div class="scenario-list" id="scenario-list"></div>
+              <button class="scenario-more-btn" id="scenario-more-btn" type="button" aria-expanded="false" aria-controls="scenario-list">Alle Szenarien anzeigen</button>
             </div>
             <div class="scenario-status" id="scenario-status" role="status" hidden>
               <strong id="scenario-status-text"></strong>
@@ -435,6 +435,8 @@
   </tr>
 </template>
 
+<script src="identifier-validation.js"></script>
+<script src="data-limits.js"></script>
 <script src="provider-data.generated.js"></script>
 <script src="providers.js"></script>
 <script src="calculator.js"></script>

@@ -3,6 +3,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const identifiers = require('../identifier-validation.js');
+const limits = require('../data-limits.js');
 
 const projectRoot = path.join(__dirname, '..');
 const providerDirectory = path.join(projectRoot, 'data', 'providers');
@@ -42,6 +44,12 @@ function readProviderDefinitions(){
     const wrapper = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
     return validateProviderSource(wrapper, filename);
   });
+  if(!identifiers.hasValidProviderIdentifiers(definitions)){
+    throw new Error('Ungültige, reservierte oder doppelte Anbieter-, Klassen- oder Tarifkennung.');
+  }
+  if(!limits.hasLimitedProviderStructure(definitions)){
+    throw new Error('Anbieterdaten überschreiten die unterstützten Größen- oder Textgrenzen.');
+  }
   definitions.sort(function(firstProvider, secondProvider){
     const firstIndex = providerOrder.indexOf(firstProvider.id);
     const secondIndex = providerOrder.indexOf(secondProvider.id);

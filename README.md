@@ -44,6 +44,8 @@ npm run build:og-image
 
 ## Anbieter und Tarife pflegen
 
+Kennungen verwenden 1–64 Zeichen, beginnen mit einem Kleinbuchstaben und enthalten nur Kleinbuchstaben, Ziffern, Bindestriche oder Unterstriche. Anbieterkennungen sind global eindeutig, Klassenkennungen je Anbieter und Tarifkennungen je Klasse. JavaScript-Prototypnamen sowie interne Anbieterkennungen (`manual`, `recommend-single`, `recommend-mix` und das Präfix `supplement-`) sind reserviert. Build, JSON-Import und Teilen-Links prüfen diese Regeln gemeinsam in `identifier-validation.js`. Ein Import mit bereits vorhandener Anbieterkennung aktualisiert diesen Anbieter nach ausdrücklichem Hinweis in der Importbestätigung.
+
 Jeder mitgelieferte Anbieter besitzt eine eigene Quelldatei unter `data/providers`. Um einen neuen Anbieter aufzunehmen:
 
 1. Eine vorhandene JSON-Datei kopieren und passend benennen, zum Beispiel `book-n-drive.json`.
@@ -54,12 +56,15 @@ Jeder mitgelieferte Anbieter besitzt eine eigene Quelldatei unter `data/provider
 
 Als `operationMode` sind `station-based` für stationsgebundene Angebote und `free-floating` für Free-Floating-Angebote zulässig. Neue JSON-Dateien werden beim Build automatisch erkannt und hinter den bekannten Anbietern einsortiert. Sie erscheinen anschließend in der Auswahl, im Tarifeditor und in den Empfehlungen. Bei Nutzern mit einem älteren lokalen Speicherstand ergänzt die Anwendung den neuen Standardanbieter beim nächsten Laden automatisch.
 
-Ein neuer Anbieter kann alternativ im Tarifeditor über „Weiteren Anbieter hinzufügen“ angelegt werden. Dort lassen sich Betriebsart, Fahrzeugklassen und Tarife hinzufügen, umbenennen und entfernen. „JSON exportieren“ speichert einen Anbieter im selben versionierten Format wie die Dateien unter `data/providers`. „Anbieter-JSON importieren“ zeigt vor dem Einlesen eine Zusammenfassung und ersetzt nach Bestätigung einen vorhandenen Anbieter mit derselben Kennung oder fügt einen neuen hinzu.
+Ein neuer Anbieter kann alternativ im Tarifeditor über „Weiteren Anbieter hinzufügen“ angelegt werden. Dort lassen sich Betriebsart, Fahrzeugklassen und Tarife hinzufügen, umbenennen und entfernen. „JSON exportieren“ speichert einen Anbieter im selben versionierten Format wie die Dateien unter `data/providers`. „Anbieter-JSON importieren“ zeigt vor dem Einlesen eine Zusammenfassung und ersetzt nach Bestätigung einen vorhandenen Anbieter mit derselben Kennung oder fügt einen neuen hinzu. Importdateien dürfen höchstens 128 KB enthalten. Insgesamt sind höchstens 20 Anbieter und pro Anbieter 20 Fahrzeugklassen mit je 20 Tarifen zulässig; Namen und Quellenangaben haben feste Textgrenzen.
+
+Teilen-Links dürfen maximal 16.384 Zeichen und 12 KB codierte Daten enthalten. Beim Entpacken werden höchstens 96 KB verarbeitet. Damit bleiben Links in gängigen Browsern handhabbar und komprimierte Daten mit unverhältnismäßig großem Inhalt werden abgewiesen. Nur das aktuelle Linkformat wird unterstützt.
 
 `provider-data.generated.js` ist eine erzeugte Datei und wird nicht von Hand bearbeitet.
 
 ## Rechenmodell und Daten
 
+- Zahlenfelder sperren Minuszeichen beim Tippen, Einfügen und Ablegen von Text. Vor Berechnung und Speicherung werden die Werte zusätzlich gegen die Feldgrenzen geprüft. Anbieter-JSON mit negativen Preisen oder Gebühren wird vollständig abgewiesen; auch Teilen-Links mit negativen Zahlen werden nicht übernommen. Freitextfelder dürfen weiterhin Bindestriche enthalten.
 - Alltagsszenarien füllen ausschließlich die Nutzungsangaben mit plausiblen Startwerten. Neben Familien-, Pendel- und Pflegeprofilen stehen Vorlagen für Wochenendbeziehungen, urbane Paare, Ruhestand, Wenigfahrer sowie Freizeitfahrten bereit. Fahrzeugkosten, Anbieter, Standort und Tarifänderungen bleiben erhalten; die unmittelbar vorherigen Nutzungswerte lassen sich wiederherstellen.
 - Für Alltagswege lässt sich unterscheiden, ob ein Fahrzeug während Hin- und Rückweg gebucht bleibt, für die Rückfahrt neu gebucht wird oder eine Einwegfahrt möglich ist. Getrennte Rückfahrten verdoppeln die Zahl der Buchungen, ohne die gesamte Nutzungszeit zu verdoppeln.
 - Die Anbieterauswahl bietet zwei automatische Modi. „Empfehlung – ein Anbieter“ vergleicht alle passenden Tarife und zeigt die drei günstigsten. „Empfehlung – Mobilitätsmix“ darf jeder Fahrtart einen anderen Tarif zuordnen und berechnet Grund- sowie anteilige Anmeldegebühren für jeden tatsächlich genutzten Tarif genau einmal.

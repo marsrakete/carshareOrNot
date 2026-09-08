@@ -2,6 +2,9 @@ param(
   [int]$Port = 5001
 )
 
+$requestReadTimeoutMilliseconds = 5000
+$responseWriteTimeoutMilliseconds = 5000
+
 $contentTypes = @{
   ".html" = "text/html; charset=utf-8"
   ".css" = "text/css; charset=utf-8"
@@ -59,12 +62,29 @@ try {
     $client = $listener.AcceptTcpClient()
     $client.NoDelay = $true
 
-    try {
-      $stream = $client.GetStream()
-      $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::ASCII, $false, 1024, $true)
+  try {
+    $stream = $client.GetStream()
+    # Verhindert, dass unvollständige oder absichtlich langsame Requests den
+    # einzigen Entwicklungsserver-Thread dauerhaft blockieren.
+    $client.ReceiveTimeout = $requestReadTimeoutMilliseconds
+    $client.SendTimeout = $responseWriteTimeoutMilliseconds
+    $stream.ReadTimeout = $requestReadTimeoutMilliseconds
+    $stream.WriteTimeout = $responseWriteTimeoutMilliseconds
+    $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::ASCII, $false, 1024, $true)
       $requestLine = $reader.ReadLine()
 
-      while (-not [string]::IsNullOrEmpty($reader.ReadLine())) {
+      # Browser können eine vorab geöffnete Verbindung ohne HTTP-Anfrage schließen.
+      if ([string]::IsNullOrWhiteSpace($requestLine)) {
+        continue
+      }
+
+      $headerLine = $reader.ReadLine()
+      while ($null -ne $headerLine -and $headerLine.Length -gt 0) {
+        $headerLine = $reader.ReadLine()
+      }
+      # EOF vor der Leerzeile bedeutet, dass die Anfrage unvollständig blieb.
+      if ($null -eq $headerLine) {
+        continue
       }
 
       $requestParts = $requestLine.Split(" ", [System.StringSplitOptions]::RemoveEmptyEntries)

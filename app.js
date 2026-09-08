@@ -4,6 +4,8 @@
   // ---------- Defaults ----------
 
   var providerData = window.CarshareData;
+  var identifiers = window.CarshareIdentifiers;
+  var limits = window.CarshareLimits;
   var BILLING_DISTANCE_WITH_PACKAGES = providerData.BILLING_DISTANCE_WITH_PACKAGES;
   var BILLING_TIME_WITH_INCLUDED_DISTANCE = providerData.BILLING_TIME_WITH_INCLUDED_DISTANCE;
   var isKnownBillingMode = providerData.isKnownBillingMode;
@@ -29,7 +31,7 @@
    * @returns {Object} Address and provider-specific location values.
    */
   function defaultLocation(){
-    var byProvider = {};
+    var byProvider = Object.create(null);
     defaultProviders().forEach(function(p){ byProvider[p.id] = defaultLocationForProvider(p.id); });
     return { address: '', byProvider: byProvider };
   }
@@ -198,6 +200,37 @@
   }
 
   /**
+   * Reads a stream while refusing data beyond a configured byte limit.
+   * @param {ReadableStream} stream - Stream producing binary chunks.
+   * @param {number} maximumBytes - Largest permitted combined chunk size.
+   * @returns {Promise<Uint8Array>} Complete bytes when the limit is respected.
+   */
+  async function readStreamWithinLimit(stream, maximumBytes){
+    var reader = stream.getReader();
+    var chunks = [];
+    var totalBytes = 0;
+    while(true){
+      var result = await reader.read();
+      if(result.done){
+        break;
+      }
+      totalBytes += result.value.byteLength;
+      if(totalBytes > maximumBytes){
+        await reader.cancel();
+        throw new Error('share-size');
+      }
+      chunks.push(result.value);
+    }
+    var bytes = new Uint8Array(totalBytes);
+    var offset = 0;
+    chunks.forEach(function(chunk){
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    });
+    return bytes;
+  }
+
+  /**
    * Encodes a complete state snapshot for use in a share URL.
    * @param {Object} snapshot - Application state to encode.
    * @returns {Promise<string>} Versioned compressed or plain payload.
@@ -205,16 +238,30 @@
   async function encodeSharePayload(snapshot){
     var wrapper = { version: SHARE_FORMAT_VERSION, state: snapshot };
     var bytes = new TextEncoder().encode(JSON.stringify(wrapper));
+    if(bytes.byteLength > limits.MAX_SHARE_DECOMPRESSED_BYTES){
+      throw new Error('share-size');
+    }
     if(typeof CompressionStream !== 'undefined'){
       try{
         var compressedStream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'));
-        var compressedBuffer = await new Response(compressedStream).arrayBuffer();
-        return 'g.' + bytesToBase64Url(new Uint8Array(compressedBuffer));
+        var compressedBytes = await readStreamWithinLimit(compressedStream, limits.MAX_SHARE_ENCODED_BYTES);
+        var compressedPayload = 'g.' + bytesToBase64Url(compressedBytes);
+        if(compressedPayload.length > limits.MAX_SHARE_PAYLOAD_CHARACTERS){
+          throw new Error('share-size');
+        }
+        return compressedPayload;
       }catch(error){
+        if(error && error.message === 'share-size'){
+          throw error;
+        }
         // Uncompressed encoding remains interoperable when compression is unavailable at runtime.
       }
     }
-    return 'j.' + bytesToBase64Url(bytes);
+    var plainPayload = 'j.' + bytesToBase64Url(bytes);
+    if(plainPayload.length > limits.MAX_SHARE_PAYLOAD_CHARACTERS){
+      throw new Error('share-size');
+    }
+    return plainPayload;
   }
 
   /**
@@ -223,22 +270,27 @@
    * @returns {Promise<Object>} Parsed wrapper containing version and state.
    */
   async function decodeSharePayload(payload){
-    if(typeof payload !== 'string' || payload.length < 3 || payload.charAt(1) !== '.'){
+    if(typeof payload !== 'string' || payload.length < 3 || payload.length > limits.MAX_SHARE_PAYLOAD_CHARACTERS || payload.charAt(1) !== '.'){
       throw new Error('share-format');
     }
     var encoding = payload.charAt(0);
     var bytes = base64UrlToBytes(payload.slice(2));
+    if(bytes.byteLength > limits.MAX_SHARE_ENCODED_BYTES){
+      throw new Error('share-size');
+    }
     if(encoding === 'g'){
       if(typeof DecompressionStream === 'undefined'){
         throw new Error('share-compression-unsupported');
       }
       var decompressedStream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-      var decompressedBuffer = await new Response(decompressedStream).arrayBuffer();
-      bytes = new Uint8Array(decompressedBuffer);
+      bytes = await readStreamWithinLimit(decompressedStream, limits.MAX_SHARE_DECOMPRESSED_BYTES);
     } else if(encoding !== 'j'){
       throw new Error('share-encoding');
     }
-    return JSON.parse(new TextDecoder().decode(bytes));
+    if(bytes.byteLength > limits.MAX_SHARE_DECOMPRESSED_BYTES){
+      throw new Error('share-size');
+    }
+    return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
   }
 
   /**
@@ -259,7 +311,7 @@
     if(value === null){
       return true;
     }
-    return typeof value === 'number' && isFinite(value) && value >= 0;
+    return typeof value === 'number' && isFinite(value) && value >= 0 && value <= limits.MAX_NUMERIC_VALUE;
   }
 
   /**
@@ -297,7 +349,7 @@
       return false;
     }
     return fields.every(function(field){
-      return typeof value[field] === 'number' && isFinite(value[field]) && value[field] >= 0;
+      return typeof value[field] === 'number' && isFinite(value[field]) && value[field] >= 0 && value[field] <= limits.MAX_NUMERIC_VALUE;
     });
   }
 
@@ -307,6 +359,12 @@
    * @returns {boolean} True when the complete provider hierarchy is usable.
    */
   function hasValidProviders(providers){
+    if(!identifiers.hasValidProviderIdentifiers(providers)){
+      return false;
+    }
+    if(!limits.hasLimitedProviderStructure(providers)){
+      return false;
+    }
     var tariffFields = ['grundgebuehr','zeitpreis','tagespreis','wochenpreis','kmBis100','kmAb100','anmeldegebuehr'];
     if(!Array.isArray(providers) || providers.length === 0){
       return false;
@@ -363,10 +421,17 @@
     if(snapshot.usage.alltagsmodell !== 'continuous' && snapshot.usage.alltagsmodell !== 'split-return' && snapshot.usage.alltagsmodell !== 'one-way'){
       return false;
     }
-    if(!isObject(snapshot.location) || typeof snapshot.location.address !== 'string' || !isObject(snapshot.location.byProvider)){
+    if(!isObject(snapshot.location) || !limits.isTextWithinLimit(snapshot.location.address, limits.MAX_ADDRESS_LENGTH) || !isObject(snapshot.location.byProvider)){
       return false;
     }
-    var validLocations = Object.keys(snapshot.location.byProvider).every(function(providerId){
+    var locationProviderIds = Object.keys(snapshot.location.byProvider);
+    if(locationProviderIds.length > limits.MAX_PROVIDERS){
+      return false;
+    }
+    var validLocations = locationProviderIds.every(function(providerId){
+      if(!identifiers.isValidProviderId(providerId)){
+        return false;
+      }
       var locationEntry = snapshot.location.byProvider[providerId];
       if(!isObject(locationEntry)){
         return false;
@@ -378,6 +443,13 @@
       return isNullableNumber(locationEntry.stationCount) && isNullableNumber(locationEntry.walkMinutes) && isNullableBoolean(serviceAvailable);
     });
     if(!validLocations || !hasValidProviders(snapshot.providers) || !isObject(snapshot.selection)){
+      return false;
+    }
+    var providerIds = snapshot.providers.map(function(provider){ return provider.id; });
+    if(!locationProviderIds.every(function(providerId){ return providerIds.indexOf(providerId) >= 0; })){
+      return false;
+    }
+    if(!identifiers.isValidProviderId(snapshot.selection.providerId) || !identifiers.isValidIdentifier(snapshot.selection.classId) || !identifiers.isValidIdentifier(snapshot.selection.tariffId)){
       return false;
     }
     return typeof snapshot.selection.providerId === 'string' &&
@@ -394,7 +466,7 @@
   function applySharedState(snapshot){
     state.own = snapshot.own;
     state.usage = snapshot.usage;
-    state.location = snapshot.location;
+    state.location = Object.assign({}, snapshot.location, { byProvider: Object.assign(Object.create(null), snapshot.location.byProvider) });
     state.providers = snapshot.providers;
     state.selection = normalizeSelection(snapshot.selection);
   }
@@ -443,10 +515,19 @@
     if(!Array.isArray(removedProviderIds)){
       removedProviderIds = [];
     }
+    if(removedProviderIds.length > limits.MAX_PROVIDERS || !removedProviderIds.every(identifiers.isValidProviderId) || new Set(removedProviderIds).size !== removedProviderIds.length){
+      throw new Error('provider-identifiers');
+    }
     providers = providers.filter(function(provider){ return removedProviderIds.indexOf(provider.id) === -1; });
     var overrides = snapshot.providerOverrides;
     if(!Array.isArray(overrides)){
       overrides = [];
+    }
+    if(overrides.length > limits.MAX_PROVIDERS || !identifiers.hasValidProviderIdentifiers(overrides)){
+      throw new Error('provider-identifiers');
+    }
+    if(overrides.length > 0 && !limits.hasLimitedProviderStructure(overrides)){
+      throw new Error('provider-size');
     }
     overrides.forEach(function(override){
       var existingIndex = providers.findIndex(function(provider){ return provider.id === override.id; });
@@ -470,7 +551,11 @@
       return { found: false, loaded: false, message: '' };
     }
     try{
-      var payload = decodeURIComponent(window.location.hash.slice(marker.length));
+      var encodedPayload = window.location.hash.slice(marker.length);
+      if(encodedPayload.length > limits.MAX_SHARE_PAYLOAD_CHARACTERS * 3){
+        throw new Error('share-size');
+      }
+      var payload = decodeURIComponent(encodedPayload);
       var wrapper = await decodeSharePayload(payload);
       if(isObject(wrapper) && wrapper.version === 2 && isObject(wrapper.state)){
         wrapper.state = expandCompactShareState(wrapper.state);
@@ -485,7 +570,7 @@
       if(isObject(wrapper) && isObject(wrapper.state)){
         wrapper.state.selection = normalizeSelection(wrapper.state.selection);
       }
-      var supportedVersion = isObject(wrapper) && (wrapper.version === 1 || wrapper.version === SHARE_FORMAT_VERSION);
+      var supportedVersion = isObject(wrapper) && wrapper.version === SHARE_FORMAT_VERSION;
       if(!supportedVersion || !isValidSharedState(wrapper.state)){
         throw new Error('share-state');
       }
@@ -496,6 +581,9 @@
       applySharedState(wrapper.state);
       return { found: true, loaded: true, message: 'Geteilte Einstellungen wurden geladen.' };
     }catch(error){
+      if(error && error.message === 'share-size'){
+        return { found: true, loaded: false, message: 'Der geteilte Link ist zu groß.' };
+      }
       return { found: true, loaded: false, message: 'Der geteilte Link ist ungültig oder wird von diesem Browser nicht unterstützt.' };
     }
   }
@@ -579,6 +667,10 @@
       }
       await copyShareUrl(url);
     }catch(error){
+      if(error && error.message === 'share-size'){
+        status.textContent = 'Die Einstellungen sind zu umfangreich für einen Teilen-Link.';
+        return;
+      }
       status.textContent = 'Der Link konnte nicht erstellt werden.';
     }finally{
       button.disabled = false;
@@ -797,14 +889,16 @@
       var res = await storageAdapter.get(STORAGE_KEY);
       if(res && res.value){
         var parsed = JSON.parse(res.value);
-        if(parsed.own) state.own = Object.assign(defaultOwn(), parsed.own);
+        if(parsed.own) state.own = providerData.normalizeOwn(parsed.own);
         if(parsed.usage) state.usage = Object.assign(defaultUsage(), parsed.usage);
         if(parsed.location){
           if(parsed.location.byProvider){
             state.location = defaultLocation();
             state.location.address = parsed.location.address || '';
             Object.keys(parsed.location.byProvider).forEach(function(providerId){
-              state.location.byProvider[providerId] = normalizeLocationEntry(parsed.location.byProvider[providerId]);
+              if(identifiers.isValidProviderId(providerId)){
+                state.location.byProvider[providerId] = normalizeLocationEntry(parsed.location.byProvider[providerId]);
+              }
             });
           } else if(typeof parsed.location.stationCount === 'number'){
             state.location = defaultLocation();
@@ -814,7 +908,7 @@
             };
           }
         }
-        if(parsed.providers && parsed.providers.length){
+        if(parsed.providers && parsed.providers.length && identifiers.hasValidProviderIdentifiers(parsed.providers)){
           state.providers = normalizeTariffData(parsed.providers);
           // Neu hinzugekommene Standard-Anbieter ergänzen, falls ein älterer Stand geladen wird
           defaultProviders().forEach(function(dp){
@@ -823,7 +917,9 @@
             }
           });
         }
-        if(parsed.selection) state.selection = normalizeSelection(parsed.selection);
+        if(parsed.selection && identifiers.isValidProviderId(parsed.selection.providerId) && identifiers.isValidIdentifier(parsed.selection.classId) && identifiers.isValidIdentifier(parsed.selection.tariffId)){
+          state.selection = normalizeSelection(parsed.selection);
+        }
       }
     }catch(e){ /* kein gespeicherter Stand vorhanden - Standardwerte werden verwendet */ }
   }
@@ -985,10 +1081,12 @@
       });
       fragment.appendChild(card);
     }
-    document.getElementById('scenario-list').replaceChildren(fragment);
+    var scenarioList = document.getElementById('scenario-list');
+    scenarioList.replaceChildren(fragment);
+    scenarioList.classList.toggle('is-expanded', showAllUsageScenarios);
     var moreButton = document.getElementById('scenario-more-btn');
     moreButton.setAttribute('aria-expanded', String(showAllUsageScenarios));
-    moreButton.textContent = 'Weitere Szenarien anzeigen';
+    moreButton.textContent = 'Alle ' + usageScenarios.length + ' Szenarien anzeigen';
     if(showAllUsageScenarios){
       moreButton.textContent = 'Weniger Szenarien anzeigen';
     }
@@ -2077,6 +2175,7 @@
       stellplatz: +document.getElementById('own_stellplatz').value || 0,
       parkausweis: +document.getElementById('own_parkausweis').value || 0
     };
+    state.own = providerData.normalizeOwn(state.own);
   }
   /**
    * Copies usage form values into application state.
@@ -2129,7 +2228,11 @@
     ];
 
     ownIds.forEach(function(id){
-      document.getElementById(id).addEventListener('input', function(){ readOwnFromInputs(); render(); scheduleSave(); });
+      document.getElementById(id).addEventListener('input', function(){
+        readOwnFromInputs();
+        render();
+        scheduleSave();
+      });
     });
     useIds.forEach(function(id){
       document.getElementById(id).addEventListener('input', function(){ readUsageFromInputs(); renderFreeFloatingFitHint(); render(); scheduleSave(); });
@@ -2508,6 +2611,10 @@
    * @returns {void}
    */
   function addProvider(){
+    if(state.providers.length >= limits.MAX_PROVIDERS){
+      window.alert('Es können höchstens ' + limits.MAX_PROVIDERS + ' Anbieter verwaltet werden.');
+      return;
+    }
     var id = uid('anbieter');
     state.providers.push({
       id: id, name: 'Neuer Anbieter', operationMode: 'station-based',
@@ -2527,9 +2634,18 @@
    */
   async function importProviderFile(file){
     try{
+      if(!file || typeof file.size !== 'number' || file.size > limits.MAX_IMPORT_BYTES){
+        throw new Error('import-size');
+      }
       var wrapper = JSON.parse(await file.text());
       if(!isObject(wrapper) || wrapper.formatVersion !== 1 || !isObject(wrapper.provider)){
         throw new Error('format');
+      }
+      if(!identifiers.hasValidProviderIdentifiers([wrapper.provider])){
+        throw new Error('provider-identifiers');
+      }
+      if(!limits.hasLimitedProviderStructure([wrapper.provider])){
+        throw new Error('provider-size');
       }
       var importedProvider = providerData.providerDefinitionToRuntime(wrapper.provider);
       if(!hasValidProviders([importedProvider])){
@@ -2537,11 +2653,18 @@
       }
       var tariffCount = 0;
       importedProvider.classes.forEach(function(providerClass){ tariffCount += providerClass.tariffs.length; });
-      var confirmed = window.confirm('„' + importedProvider.name + '“ mit ' + importedProvider.classes.length + ' Fahrzeugklassen und ' + tariffCount + ' Tarifen importieren?');
+      var existingIndex = state.providers.findIndex(function(provider){ return provider.id === importedProvider.id; });
+      if(existingIndex < 0 && state.providers.length >= limits.MAX_PROVIDERS){
+        throw new Error('provider-size');
+      }
+      var preview = '„' + importedProvider.name + '“ mit ' + importedProvider.classes.length + ' Fahrzeugklassen und ' + tariffCount + ' Tarifen importieren?';
+      if(existingIndex >= 0){
+        preview += '\nDer vorhandene Anbieter „' + state.providers[existingIndex].name + '“ mit der Kennung ' + importedProvider.id + ' wird ersetzt.';
+      }
+      var confirmed = window.confirm(preview);
       if(!confirmed){
         return;
       }
-      var existingIndex = state.providers.findIndex(function(provider){ return provider.id === importedProvider.id; });
       if(existingIndex >= 0){
         state.providers[existingIndex] = importedProvider;
       } else {
@@ -2554,7 +2677,19 @@
       render();
       scheduleSave();
     }catch(error){
-      window.alert('Die JSON-Datei ist ungültig oder unvollständig. Bitte verwende das Exportformat der Anwendung.');
+      if(error.message === 'import-size'){
+        window.alert('Import abgelehnt: Die Datei ist größer als 128 KB.');
+        return;
+      }
+      if(error.message === 'provider-size'){
+        window.alert('Import abgelehnt: Es sind höchstens 20 Anbieter zulässig. Pro Anbieter sind höchstens 20 Fahrzeugklassen mit je 20 Tarifen erlaubt. Namen und Tarifmetadaten dürfen die unterstützte Länge nicht überschreiten.');
+        return;
+      }
+      if(error.message === 'provider-identifiers'){
+        window.alert('Import abgelehnt: Anbieter-, Klassen- oder Tarifkennungen sind ungültig, reserviert oder doppelt. Erlaubt sind maximal 64 Zeichen: Kleinbuchstaben, Ziffern, Bindestrich und Unterstrich, beginnend mit einem Buchstaben.');
+        return;
+      }
+      window.alert('Import abgelehnt: Die JSON-Datei ist ungültig oder unvollständig. Preise und Gebühren müssen Zahlen ab 0 sein. Bitte verwende das Exportformat der Anwendung.');
     }
   }
 
@@ -2659,10 +2794,75 @@
   // ---------- Init ----------
 
   /**
+   * Blocks minus signs typed or pasted into numeric controls, including dynamic tariff rows.
+   * @param {Event} event - Keyboard, insertion, paste or drop event.
+   * @returns {void} Cancels an insertion containing a minus sign.
+   */
+  function preventNegativeNumberEntry(event){
+    if(!event.target || event.target.type !== 'number'){
+      return;
+    }
+    var text = event.key || event.data || '';
+    if(event.clipboardData){
+      text = event.clipboardData.getData('text');
+    } else if(event.dataTransfer){
+      text = event.dataTransfer.getData('text');
+    }
+    if(/[-−]/.test(text)){
+      event.preventDefault();
+    }
+  }
+
+  /**
+   * Enforces numeric bounds before field handlers calculate or save an entered value.
+   * @param {Event} event - Input or change event from a numeric control.
+   * @returns {void} Corrects out-of-range numbers while preserving intentionally empty fields.
+   */
+  function validateNumberEntry(event){
+    var input = event.target;
+    if(!input || input.type !== 'number'){
+      return;
+    }
+    var minimum = 0;
+    if(input.min !== ''){
+      minimum = Math.max(Number(input.min), 0);
+    }
+    if(input.validity && input.validity.badInput){
+      input.value = String(minimum);
+      return;
+    }
+    if(input.value === ''){
+      return;
+    }
+    var value = Number(input.value);
+    if(!isFinite(value) || value < minimum){
+      input.value = String(minimum);
+    } else if(value > limits.MAX_NUMERIC_VALUE){
+      input.value = String(limits.MAX_NUMERIC_VALUE);
+    } else if(input.max !== '' && value > Number(input.max)){
+      input.value = input.max;
+    }
+  }
+
+  /**
+   * Installs capture handlers so validation precedes all calculator and tariff listeners.
+   * @returns {void} Applies to existing controls and subsequently cloned templates.
+   */
+  function bindNumberValidation(){
+    ['keydown', 'beforeinput', 'paste', 'drop'].forEach(function(eventName){
+      document.addEventListener(eventName, preventNegativeNumberEntry, true);
+    });
+    ['input', 'change'].forEach(function(eventName){
+      document.addEventListener(eventName, validateNumberEntry, true);
+    });
+  }
+
+  /**
    * Loads persisted state, initializes controls and performs the first render.
    * @returns {Promise<void>} Resolves when initialization has completed.
    */
   async function init(){
+    bindNumberValidation();
     await loadState();
     var sharedStateResult = await loadSharedState();
     fillOwnInputs();

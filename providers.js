@@ -1,5 +1,6 @@
 (function(global){
   'use strict';
+  var limits = global.CarshareLimits;
 
   /**
    * Checks whether a value is a non-array object.
@@ -59,6 +60,23 @@
       wartung: 600, versicherung: 700, sonstiges: 400, sonstigesExtra: 0,
       verbrauch: 6.5, kraftstoffpreis: 2.20, stellplatz: 0, parkausweis: 30
     };
+  }
+
+  /**
+   * Normalizes owned-car inputs to finite, non-negative values.
+   * @param {Object} values - Entered or stored owned-car settings.
+   * @returns {Object} Independent settings with at least one year of ownership.
+   */
+  function normalizeOwn(values){
+    var normalized = defaultOwn();
+    Object.keys(normalized).forEach(function(field){
+      var value = values[field];
+      if(typeof value === 'number' && isFinite(value)){
+        normalized[field] = limits.clampNumber(value, normalized[field]);
+      }
+    });
+    normalized.haltedauer = Math.max(normalized.haltedauer, 1);
+    return normalized;
   }
 
   /**
@@ -197,6 +215,7 @@
     BILLING_TIME_WITH_INCLUDED_DISTANCE: BILLING_TIME_WITH_INCLUDED_DISTANCE,
     isKnownBillingMode: isKnownBillingMode,
     defaultOwn: defaultOwn,
+    normalizeOwn: normalizeOwn,
     defaultUsage: defaultUsage,
     tariff: tariff,
     defaultProviders: defaultProviders,
