@@ -61,8 +61,9 @@ try {
   while ($true) {
     $client = $listener.AcceptTcpClient()
     $client.NoDelay = $true
+    $reader = $null
 
-  try {
+    try {
     $stream = $client.GetStream()
     # Verhindert, dass unvollständige oder absichtlich langsame Requests den
     # einzigen Entwicklungsserver-Thread dauerhaft blockieren.
@@ -94,7 +95,19 @@ try {
         continue
       }
 
-      $requestTarget = $requestParts[1].Split([char]"?")[0]
+      $requestTarget = $requestParts[1]
+      if ([string]::IsNullOrWhiteSpace($requestTarget)) {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes("400 - Ungültige Anfrage")
+        Send-HttpResponse -Stream $stream -StatusCode 400 -ReasonPhrase "Bad Request" -ContentType "text/plain; charset=utf-8" -Body $bytes
+        continue
+      }
+
+      $requestTarget = $requestTarget.Split([char]"?")[0]
+      if ($null -eq $requestTarget) {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes("400 - Ungültige Anfrage")
+        Send-HttpResponse -Stream $stream -StatusCode 400 -ReasonPhrase "Bad Request" -ContentType "text/plain; charset=utf-8" -Body $bytes
+        continue
+      }
       $requestPath = [System.Uri]::UnescapeDataString($requestTarget).TrimStart([char]"/")
       if ([string]::IsNullOrWhiteSpace($requestPath)) {
         $requestPath = "index.html"
@@ -129,7 +142,12 @@ try {
       Write-Warning "Anfrage konnte nicht verarbeitet werden: $($_.Exception.Message)"
     }
     finally {
-      $client.Close()
+      if ($null -ne $reader) {
+        $reader.Dispose()
+      }
+      if ($null -ne $client) {
+        $client.Close()
+      }
     }
   }
 }

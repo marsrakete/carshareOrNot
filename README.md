@@ -5,7 +5,7 @@ Vergleiche die jährlichen Kosten eines eigenen Gebrauchtwagens mit denen von Ca
 
 Der Button „Teilen“ öffnet auf unterstützten Geräten das native Teilen-Menü. Andernfalls wird der Link in die Zwischenablage kopiert oder zum manuellen Kopieren angezeigt.
 
-Der Link enthält den vollständigen Rechnerzustand, einschließlich der eingegebenen Adresse, Standortwerte und angepassten Tarife. Unveränderte Standardtarife werden dabei nicht mitgesendet; der Empfänger ergänzt sie aus der Anwendung. Die Daten stehen komprimiert im URL-Hash und werden deshalb beim Aufruf nicht als Teil der HTTP-Anfrage an den Webserver übertragen. Jeder Empfänger des Links kann die enthaltenen Einstellungen laden und lesen. Ältere Links des ersten Formats bleiben lesbar.
+Der Link enthält den vollständigen Rechnerzustand, einschließlich der eingegebenen Adresse, Standortwerte und angepassten Tarife. Unveränderte Standardtarife werden dabei nicht mitgesendet; der Empfänger ergänzt sie aus der Anwendung. Die Daten stehen komprimiert im URL-Hash und werden deshalb beim Aufruf nicht als Teil der HTTP-Anfrage an den Webserver übertragen. Jeder Empfänger des Links kann die enthaltenen Einstellungen laden und lesen. Unterstützt wird nur das aktuelle Linkformat.
 
 „Ergebnisgrafik“ erzeugt eine 1200 × 630 Pixel große PNG-Zusammenfassung. Auf Geräten mit Datei-Teilen wird sie über das native Teilen-Menü angeboten, andernfalls als Datei heruntergeladen.
 
@@ -18,6 +18,47 @@ Der lokale Webserver wird in PowerShell aus dem Projektverzeichnis gestartet:
 ```
 
 Die Anwendung ist anschließend unter `http://localhost:5001/` erreichbar. Mit `-Port 8080` kann bei Bedarf ein anderer Port gewählt werden; beendet wird der Server mit `Strg+C`.
+
+## Standortsuche mit OpenStreetMap
+
+Die Suche läuft nur nach Klick auf „Stationen suchen“ für stationsbasierte Anbieter. Sie verwendet zwei öffentliche OpenStreetMap-Dienste direkt aus dem Browser:
+
+1. Nominatim erhält die eingegebene Adresse und liefert genau einen Treffer (`format=json`, `limit=1`):
+
+   ```text
+   GET https://nominatim.openstreetmap.org/search?format=json&limit=1&q=<URL-codierte Adresse>
+   ```
+
+2. Overpass erhält nur die Koordinaten dieses Treffers. Die Anwendung fragt alle als Carsharing markierten Knoten im Radius von 1.500 Metern ab:
+
+   ```text
+   POST https://overpass-api.de/api/interpreter
+   Content-Type: text/plain;charset=UTF-8
+
+   data=%5Bout%3Ajson%5D%5Btimeout%3A15%5D%3Bnode%28around%3A1500%2C<LAT>%2C<LON>%29%5B%22amenity%22%3D%22car_sharing%22%5D%3Bout%20body%3B
+   ```
+
+   Dekodiert lautet die Overpass-Abfrage:
+
+   ```overpass
+   [out:json][timeout:15];
+   node(around:1500,<LAT>,<LON>)["amenity"="car_sharing"];
+   out body;
+   ```
+
+Die Anbieterkennung wird nicht an Overpass übermittelt. Die Anwendung vergleicht `operator`, `brand`, `network` und `name` erst lokal mit dem gewählten Anbieter. Für Free-Floating-Angebote findet keine OSM-Abfrage statt. Beide Netzwerkaufrufe werden nach 8 beziehungsweise 12 Sekunden abgebrochen; die Standortdaten bleiben bei Fehlern unverändert.
+
+Für einen manuellen Test der Overpass-Abfrage am Reichenspergerplatz in Köln kann in PowerShell folgender Aufruf verwendet werden:
+
+```powershell
+curl.exe --get `
+  --data-urlencode 'data=[out:json][timeout:15];node(around:1500,50.9542,6.9630)["amenity"="car_sharing"];out body;' `
+  -H 'Referer: http://localhost:5001/' `
+  -H 'Accept: application/json' `
+  'https://overpass-api.de/api/interpreter'
+```
+
+`overpass-api.de` verlangt für Browser-Anfragen einen Referer. Die Anwendung erhält ihn automatisch, wenn sie über den lokalen Server läuft. Wird die GET-URL dagegen direkt in die Browser-Adresszeile eingefügt oder die Anwendung über `file://` geöffnet, kann der Dienst mit `406 Not Acceptable` antworten.
 
 ## Projektstruktur
 
