@@ -1,10 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
   <title id="title">Auto oder Carsharing?</title>
   <desc id="desc">Open-Graph-Grafik mit einem Kostenvergleich zwischen eigenem Auto und Carsharing.</desc>
   <defs>
     <linearGradient id="og-bg" x1="74" y1="34" x2="1128" y2="628" gradientUnits="userSpaceOnUse">
       <stop stop-color="#F8FCF9"/>
-      <stop offset=".48" stop-color="#E6F4EB"/>
+      <stop offset="0.48" stop-color="#E6F4EB"/>
       <stop offset="1" stop-color="#CDE7D9"/>
     </linearGradient>
     <linearGradient id="og-green" x1="0" y1="0" x2="1" y2="1">
@@ -26,51 +27,45 @@
       .card-copy { font-family: "Segoe UI", Arial, sans-serif; font-size: 14px; font-weight: 500; fill: #638078; }
     </style>
   </defs>
-
   <rect width="1200" height="630" fill="url(#og-bg)"/>
   <circle cx="1090" cy="74" r="208" fill="#75C8A5" opacity=".13"/>
   <circle cx="42" cy="618" r="196" fill="#FFFFFF" opacity=".32"/>
   <path d="M0 526C198 475 348 546 556 501C780 452 922 347 1200 390V630H0Z" fill="#FFFFFF" opacity=".25"/>
-
-  <g transform="translate(74 70)">
-    <g>
-      <rect width="96" height="96" rx="26" fill="url(#og-green)"/>
-      <path d="M23 56l6-17c2-5 6-8 11-8h18c5 0 9 3 11 8l6 17" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
-      <rect x="18" y="51" width="62" height="24" rx="8" fill="#FFFFFF"/>
-      <path d="M33 51l4-12h24l4 12" fill="#BFE9D6"/>
-      <circle cx="32" cy="63" r="5" fill="#167C63"/>
-      <circle cx="66" cy="63" r="5" fill="#167C63"/>
-      <circle cx="73" cy="23" r="5" fill="#E9FFF6"/>
-      <circle cx="85" cy="15" r="4" fill="#E9FFF6"/>
-      <path d="M73 23l12-8" stroke="#A8E8CC" stroke-width="3" stroke-linecap="round"/>
-    </g>
-    <text class="eyebrow" x="122" y="58">CARSHARE OR NOT</text>
+  <g transform="matrix(1, 0, 0, 1, 74, 70)">
+    <rect width="96" height="96" rx="26" fill="url(#og-green)"/>
+    <path d="M23 56l6-17c2-5 6-8 11-8h18c5 0 9 3 11 8l6 17" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+    <rect x="18" y="51" width="62" height="24" rx="8" fill="#FFFFFF"/>
+    <path d="M33 51l4-12h24l4 12" fill="#BFE9D6"/>
+    <circle cx="32" cy="63" r="5" fill="#167C63"/>
+    <circle cx="66" cy="63" r="5" fill="#167C63"/>
+    <circle cx="73" cy="23" r="5" fill="#E9FFF6"/>
+    <circle cx="85" cy="15" r="4" fill="#E9FFF6"/>
+    <path d="M73 23l12-8" stroke="#A8E8CC" stroke-width="3" stroke-linecap="round"/>
   </g>
-
+  <text class="eyebrow" x="196" y="128" style="white-space: pre; stroke-width: 1; font-size: 17px;">CARSHARE OR NOT</text>
   <g transform="translate(74 230)">
-    <text class="main-title" x="0" y="0">Auto oder</text>
-    <text class="main-title" x="0" y="78">Carsharing?</text>
-    <text class="subtitle" x="0" y="139">Vergleiche Jahreskosten mit deinen</text>
-    <text class="subtitle" x="0" y="176">Fahrgewohnheiten und echten Tarifen.</text>
+    <text class="main-title" x="0" y="0" style="white-space: pre;">Auto oder</text>
+    <text class="main-title" x="0" y="78" style="white-space: pre;">Carsharing?</text>
+    <text class="subtitle" x="0" y="139" style="white-space: pre;">Vergleiche Jahreskosten mit deinen</text>
+    <text class="subtitle" x="0" y="176" style="white-space: pre;">Fahrgewohnheiten und echten Tarifen.</text>
   </g>
-
   <g transform="translate(704 92)" filter="url(#og-shadow)">
     <rect width="420" height="446" rx="38" fill="url(#og-panel)" stroke="#C8DED3" stroke-width="2"/>
-    <text class="eyebrow" x="36" y="52">JAHRESKOSTEN</text>
-    <text class="card-label" x="36" y="98">Eigener Wagen</text>
+    <text class="eyebrow" x="36" y="52" style="white-space: pre;">JAHRESKOSTEN</text>
+    <text class="card-label" x="36" y="98" style="white-space: pre;">Eigener Wagen</text>
     <rect x="36" y="116" width="348" height="18" rx="9" fill="#E8F1EC"/>
     <rect x="36" y="116" width="292" height="18" rx="9" fill="#B54955"/>
-    <text class="card-copy" x="36" y="160">Kauf · Wartung · Versicherung · Kraftstoff</text>
-
-    <text class="card-label" x="36" y="220">Carsharing</text>
+    <text class="card-copy" x="36" y="160" style="white-space: pre;">Kauf · Wartung · Versicherung · Kraftstoff</text>
+    <text class="card-label" x="36" y="220" style="white-space: pre;">Carsharing</text>
     <rect x="36" y="238" width="348" height="18" rx="9" fill="#E8F1EC"/>
     <rect x="36" y="238" width="198" height="18" rx="9" fill="url(#og-green)"/>
-    <text class="card-copy" x="36" y="282">Zeit · Strecke · Tarif · Verfügbarkeit</text>
-
+    <text class="card-copy" x="36" y="282" style="white-space: pre;">Zeit · Strecke · Tarif · Verfügbarkeit</text>
     <path d="M36 328h348" stroke="#D6E7DE" stroke-width="2"/>
     <circle cx="70" cy="374" r="25" fill="#D7F2E6"/>
     <path d="M59 374l8 8 15-18" fill="none" stroke="#167C63" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-    <text class="card-label" x="110" y="369">Eine klare Entscheidung</text>
-    <text class="card-copy" x="110" y="394">auf Basis deiner eigenen Angaben</text>
+    <text class="card-label" x="110" y="369" style="white-space: pre;">Eine klare Entscheidung</text>
+    <text class="card-copy" x="110" y="394" style="white-space: pre;">auf Basis deiner eigenen Angaben</text>
   </g>
+  <rect x="137.583" y="145.503" width="5.963" height="9.694" style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0); stroke-width: 1;"/>
+  <rect x="102.82" y="145.32" width="5.963" height="9.694" style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0); stroke-width: 1;"/>
 </svg>
