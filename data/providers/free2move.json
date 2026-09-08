@@ -1,0 +1,15 @@
+{
+  "formatVersion": 1,
+  "provider": {
+    "id": "free2move", "name": "Free2move (vormals Share Now)", "operationMode": "free-floating",
+    "meta": { "sourceUrl": "https://www.free2move.com", "region": "Geschäftsgebiet des Anbieters", "lastVerifiedAt": "" },
+    "classes": [
+      { "id": "klein", "name": "Kleinwagen", "tariffs": [
+        { "id": "zeit", "name": "Minuten-/Stunden-/Tagestarif", "billingMode": "time-with-included-distance", "grundgebuehr": 0, "zeitpreis": 7, "tagespreis": 20.5, "wochenpreis": 102.5, "kmBis100": 0, "kmAb100": 0, "anmeldegebuehr": 0 }
+      ] },
+      { "id": "kombi", "name": "Kombi", "tariffs": [
+        { "id": "zeit", "name": "Minuten-/Stunden-/Tagestarif", "billingMode": "time-with-included-distance", "grundgebuehr": 0, "zeitpreis": 9, "tagespreis": 28, "wochenpreis": 140, "kmBis100": 0, "kmAb100": 0, "anmeldegebuehr": 0 }
+      ] }
+    ]
+  }
+}

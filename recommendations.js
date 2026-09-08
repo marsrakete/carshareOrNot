@@ -23,7 +23,16 @@
    * @returns {boolean} True für manuelle Auswahl oder einen Empfehlungsmodus.
    */
   function isKnownMode(mode){
-    return mode === MODE_MANUAL || mode === MODE_SINGLE || mode === MODE_MIX;
+    if(mode === MODE_MANUAL){
+      return true;
+    }
+    if(mode === MODE_SINGLE){
+      return true;
+    }
+    if(mode === MODE_MIX){
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -32,7 +41,19 @@
    * @returns {boolean} True für einen bekannten Wert.
    */
   function isKnownFreeFloatingFit(fit){
-    return fit === FREE_FLOATING_AUTO || fit === FREE_FLOATING_SUITABLE || fit === FREE_FLOATING_SUPPLEMENT || fit === FREE_FLOATING_UNSUITABLE;
+    if(fit === FREE_FLOATING_AUTO){
+      return true;
+    }
+    if(fit === FREE_FLOATING_SUITABLE){
+      return true;
+    }
+    if(fit === FREE_FLOATING_SUPPLEMENT){
+      return true;
+    }
+    if(fit === FREE_FLOATING_UNSUITABLE){
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -88,10 +109,33 @@
    */
   function calculateRankingValue(state, provider, cost){
     if(provider.operationMode !== 'free-floating'){
+      if(provider.operationMode === 'station-based' && state.usage.alltagsmodell === 'one-way'){
+        return { value: cost * 1.5, note: 'Stationsbasiert: für Einwegfahrten deutlich weniger geeignet' };
+      }
       return { value: cost, note: '' };
     }
     var fit = resolveFreeFloatingFit(state);
     return { value: cost * fit.factor, note: 'Free-Floating: ' + fit.reason };
+  }
+
+  /**
+   * Describes how current a tariff source is according to its metadata.
+   * @param {Object} metadata - Tariff source metadata.
+   * @returns {string} German freshness note.
+   */
+  function describeTariffFreshness(metadata){
+    if(!metadata || !metadata.lastVerifiedAt){
+      return 'Tarifstand nicht dokumentiert';
+    }
+    var verifiedAt = new Date(metadata.lastVerifiedAt + 'T00:00:00');
+    var ageInDays = (Date.now() - verifiedAt.getTime()) / 86400000;
+    if(!isFinite(ageInDays)){
+      return 'Tarifstand bitte prüfen';
+    }
+    if(ageInDays > 180){
+      return 'Tarifstand älter als 6 Monate';
+    }
+    return 'Tarifstand ' + metadata.lastVerifiedAt;
   }
 
   /**
@@ -189,6 +233,7 @@
           operationMode: provider.operationMode,
           rankingScore: ranking.value,
           fitNote: ranking.note,
+          freshnessNote: describeTariffFreshness(selectedTariff.v.meta),
           result: result
         });
       }
@@ -227,6 +272,7 @@
       rankingRows.push({
         label: candidate.providerName + ' · ' + candidate.tariffName,
         detail: candidate.fitNote,
+        freshnessNote: candidate.freshnessNote,
         cost: candidate.result.cambio.total,
         providerId: candidate.providerId,
         tariffId: candidate.tariffId
@@ -277,6 +323,9 @@
    * @returns {Object|null} Erweitertes Portfolio oder null bei Tarifkonflikt.
    */
   function extendPortfolio(portfolio, candidate, categoryDefinition){
+    if(Array.isArray(candidate.allowedCategories) && candidate.allowedCategories.indexOf(categoryDefinition.key) === -1){
+      return null;
+    }
     var selectedByProvider = Object.assign({}, portfolio.selectedByProvider);
     var existingTariff = selectedByProvider[candidate.providerId];
     if(existingTariff && existingTariff !== candidate.id){
@@ -301,6 +350,63 @@
       state: portfolio.state,
       assignments: assignments
     };
+  }
+
+  /**
+   * Creates a calculated category for a supplementary mobility option.
+   * @param {Object} source - Reference category containing trips and kilometers.
+   * @param {number} bookingPrice - Fixed price per booking.
+   * @param {number} kilometerPrice - Price per kilometer.
+   * @returns {Object} Category cost in the calculator result format.
+   */
+  function createSupplementCategory(source, bookingPrice, kilometerPrice){
+    var timeCost = source.trips * bookingPrice;
+    var kmCost = source.km * kilometerPrice;
+    return { trips: source.trips, km: source.km, timeCost: timeCost, kmCost: kmCost, total: timeCost + kmCost };
+  }
+
+  /**
+   * Builds transparent taxi, rental-car and public-transport assumptions for the mobility mix.
+   * @param {Object} state - Complete calculator state.
+   * @param {Object} referenceResult - A calculated carsharing result supplying trip quantities.
+   * @returns {Array<Object>} Supplementary candidates used only by the mobility mix.
+   */
+  function buildSupplementCandidates(state, referenceResult){
+    var source = referenceResult.cambio.tripCategories;
+    var zero = { trips: 0, km: 0, timeCost: 0, kmCost: 0, total: 0 };
+    var taxiCategories = {
+      everyday: createSupplementCategory(source.everyday, 4, 2.2),
+      schoolRuns: createSupplementCategory(source.schoolRuns, 4, 2.2),
+      dayTrips: zero, multiDay: zero, vacations: zero
+    };
+    var rentalCategories = {
+      everyday: zero, schoolRuns: zero,
+      dayTrips: createSupplementCategory(source.dayTrips, 55, 0.18),
+      multiDay: createSupplementCategory(source.multiDay, Math.max(state.usage.tageprofahrt, 1) * 55, 0.18),
+      vacations: createSupplementCategory(source.vacations, Math.max(state.usage.tageprourlaub, 1) * 55, 0.18)
+    };
+    var transitCategories = {
+      everyday: createSupplementCategory(source.everyday, 0, 0),
+      schoolRuns: createSupplementCategory(source.schoolRuns, 0, 0),
+      dayTrips: zero, multiDay: zero, vacations: zero
+    };
+    return [
+      {
+        id: 'supplement::taxi', providerId: 'supplement-taxi', providerName: 'Taxi / Ridehailing', tariffId: 'estimate', tariffName: '4 € Start + 2,20 €/km', operationMode: 'supplement',
+        rankingScore: 0, fitNote: 'Rechenannahme, lokal prüfen', freshnessNote: 'Kein Live-Preis', allowedCategories: ['everyday', 'schoolRuns'], requiresLocation: false,
+        result: { cambio: { fix: 0, tripCategories: taxiCategories } }
+      },
+      {
+        id: 'supplement::rental', providerId: 'supplement-rental', providerName: 'Mietwagen', tariffId: 'estimate', tariffName: '55 €/Tag + 0,18 €/km', operationMode: 'supplement',
+        rankingScore: 0, fitNote: 'Rechenannahme, lokal prüfen', freshnessNote: 'Kein Live-Preis', allowedCategories: ['dayTrips', 'multiDay', 'vacations'], requiresLocation: false,
+        result: { cambio: { fix: 0, tripCategories: rentalCategories } }
+      },
+      {
+        id: 'supplement::transit', providerId: 'supplement-transit', providerName: 'ÖPNV', tariffId: 'estimate', tariffName: '58 €/Monat', operationMode: 'supplement',
+        rankingScore: 0, fitNote: 'Pauschale Rechenannahme', freshnessNote: 'Kein Live-Preis', allowedCategories: ['everyday', 'schoolRuns'], requiresLocation: false,
+        result: { cambio: { fix: 58 * 12, tripCategories: transitCategories } }
+      }
+    ];
   }
 
   /**
@@ -341,6 +447,8 @@
     var kmCost = 0;
     var rows = [];
     var selectedProviderIds = [];
+    var locationProviderIds = [];
+    var displayedFixedProviderIds = [];
     for(var index = 0; index < portfolio.assignments.length; index += 1){
       var assignment = portfolio.assignments[index];
       tripCategories[assignment.definition.key] = assignment.category;
@@ -350,15 +458,24 @@
       if(assignment.candidate.fitNote){
         assignmentDetail += ' · ' + assignment.candidate.fitNote;
       }
+      var rowCost = assignment.category.total;
+      if(displayedFixedProviderIds.indexOf(assignment.candidate.providerId) === -1){
+        rowCost += assignment.candidate.result.cambio.fix;
+        displayedFixedProviderIds.push(assignment.candidate.providerId);
+      }
       rows.push({
         label: assignment.definition.label,
         detail: assignmentDetail,
-        cost: assignment.category.total,
+        freshnessNote: assignment.candidate.freshnessNote || '',
+        cost: rowCost,
         providerId: assignment.candidate.providerId,
         tariffId: assignment.candidate.tariffId
       });
       if(selectedProviderIds.indexOf(assignment.candidate.providerId) === -1){
         selectedProviderIds.push(assignment.candidate.providerId);
+      }
+      if(assignment.candidate.requiresLocation !== false && locationProviderIds.indexOf(assignment.candidate.providerId) === -1){
+        locationProviderIds.push(assignment.candidate.providerId);
       }
     }
 
@@ -374,9 +491,9 @@
     if(state.usage.jahreskm > 0){
       perKm = total / state.usage.jahreskm;
     }
-    var allLocationsKnown = selectedProviderIds.length > 0;
-    for(var providerIndex = 0; providerIndex < selectedProviderIds.length; providerIndex += 1){
-      if(!hasKnownLocation(state, selectedProviderIds[providerIndex])){
+    var allLocationsKnown = true;
+    for(var providerIndex = 0; providerIndex < locationProviderIds.length; providerIndex += 1){
+      if(!hasKnownLocation(state, locationProviderIds[providerIndex])){
         allLocationsKnown = false;
       }
     }
@@ -431,6 +548,7 @@
       return null;
     }
     var referenceResult = candidates[0].result;
+    candidates = candidates.concat(buildSupplementCandidates(state, referenceResult));
     var activeDefinitions = [];
     for(var index = 0; index < CATEGORY_DEFINITIONS.length; index += 1){
       var definition = CATEGORY_DEFINITIONS[index];

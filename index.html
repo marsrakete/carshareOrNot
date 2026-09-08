@@ -56,6 +56,7 @@
           <div class="field-row"><label for="own_wartung">Wartung &amp; Reparaturen <span class="unit">€/Jahr</span></label><input type="number" id="own_wartung" min="0" step="10"></div>
           <div class="field-row"><label for="own_versicherung">Versicherung <span class="unit">€/Jahr</span></label><input type="number" id="own_versicherung" min="0" step="10"></div>
           <div class="field-row"><label for="own_sonstiges">Steuer, TÜV, Reifen u.ä. <span class="unit">€/Jahr</span></label><input type="number" id="own_sonstiges" min="0" step="10"></div>
+          <div class="field-row"><label for="own_sonstiges_extra">Sonstiges <span class="unit">€/Jahr</span></label><input type="number" id="own_sonstiges_extra" min="0" step="10" value="0"></div>
           <div class="field-row"><label for="own_verbrauch">Verbrauch <span class="unit">l/100 km</span></label><input type="number" id="own_verbrauch" min="0" step="0.1"></div>
           <div class="field-row"><label for="own_kraftstoffpreis">Kraftstoffpreis <span class="unit">€/l</span></label><input type="number" id="own_kraftstoffpreis" min="0" step="0.01"></div>
           <div class="field-row"><label for="own_stellplatz">Stellplatzmiete, falls benötigt <span class="unit">€/Monat</span></label><input type="number" id="own_stellplatz" min="0" step="5"></div>
@@ -98,6 +99,15 @@
           <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11"/></svg><span>Alltagsfahrten</span></h3>
           <div class="field-row"><label for="use_kurzfahrten">Alltagsfahrten <span class="unit">Anzahl/Monat</span></label><input type="number" id="use_kurzfahrten" min="0" step="1"></div>
           <div class="field-row"><label for="use_stundenprofahrt">Ø Dauer je Alltagsfahrt <span class="unit">Stunden</span></label><input type="number" id="use_stundenprofahrt" min="0" step="0.5"></div>
+          <div class="preference-field booking-model-field">
+            <label for="use_booking_model">Wie wird eine Alltagsfahrt gebucht?</label>
+            <select id="use_booking_model">
+              <option value="continuous">Eine durchgehende Hin- und Rückfahrt</option>
+              <option value="split-return">Hin- und Rückfahrt getrennt buchen</option>
+              <option value="one-way">Einwegfahrt, Rückgabe an anderem Ort</option>
+            </select>
+            <p class="hint">Getrennte Buchungen teilen Strecke und Nutzungszeit auf zwei Buchungen. Einwegfahrten beeinflussen zusätzlich die Eignung stationsbasierter Anbieter.</p>
+          </div>
 
           <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20v-8h8v8M6 10l6-6 6 6M10 15h4"/></svg><span>Bring- und Abholfahrten</span></h3>
           <p class="hint usage-category-hint">Regelmäßige Fahrten zu Schule, Kita, Training oder anderen festen Terminen.</p>
@@ -226,6 +236,21 @@
           </tbody>
         </table>
 
+        <section class="decision-details" aria-labelledby="decision-details-title">
+          <h2 id="decision-details-title">Entscheidungshilfe</h2>
+          <div class="decision-metrics">
+            <div>
+              <span>Realistische Spanne</span>
+              <div class="uncertainty-range" id="uncertainty-range">
+                <p><span>Eigenes Auto</span><strong id="uncertainty-own">&ndash;</strong></p>
+                <p><span>Alternative</span><strong id="uncertainty-alternative">&ndash;</strong></p>
+              </div>
+            </div>
+            <div><span>Rechnerischer Kipppunkt</span><strong id="break-even-value">&ndash;</strong></div>
+          </div>
+          <p id="recommendation-reason"></p>
+        </section>
+
         <section class="cost-composition" aria-labelledby="cost-composition-title">
           <h2 id="cost-composition-title">Woraus sich die Kosten zusammensetzen</h2>
           <div id="cost-composition-bars"></div>
@@ -241,6 +266,7 @@
         <div class="insights" id="insights"></div>
         <div class="share-area">
           <button class="share-btn" id="share-btn" type="button">Teilen</button>
+          <button class="share-btn secondary" id="share-image-btn" type="button">Ergebnisgrafik</button>
           <p class="share-hint">Der Link enthält alle Angaben, auch die eingegebene Adresse und angepasste Tarife.</p>
           <p class="share-status" id="share-status" role="status"></p>
           <textarea class="share-fallback" id="share-fallback" aria-label="Link zum manuellen Kopieren" readonly hidden></textarea>
@@ -265,11 +291,14 @@
         <a href="https://www.miles-mobility.com" target="_blank" rel="noopener">miles-mobility.com</a>,
         <a href="https://www.free2move.com" target="_blank" rel="noopener">free2move.com</a> und
         <a href="https://www.sixt.de/share" target="_blank" rel="noopener">sixt.de/share</a> für deinen Standort abgleichen und hier anpassen.
-        Änderungen werden automatisch für dich gespeichert.
+        Änderungen werden automatisch für dich gespeichert. Über „JSON exportieren“ kannst du die Daten eines Anbieters
+        im selben Format wie die Projektdateien herunterladen.
       </p>
       <div id="providers-list"></div>
       <div class="tariff-actions">
         <button class="add-provider-btn" id="add-provider-btn" type="button">+ Weiteren Anbieter hinzufügen</button>
+        <button class="add-provider-btn" id="import-provider-btn" type="button">Anbieter aus JSON importieren</button>
+        <input id="import-provider-file" type="file" accept="application/json,.json" hidden>
         <button class="add-provider-btn" id="reset-tariffs-btn" type="button">Standardtarife wiederherstellen</button>
       </div>
     </div>
@@ -282,6 +311,11 @@
     geändert haben. Er ersetzt keine Beratung und keinen Blick in die aktuellen Vertragsbedingungen der Anbieter. Bitte
     verschaffe dir vor einem Vertragsabschluss unbedingt selbst ein aktuelles Bild, etwa direkt bei Cambio, Miles, Free2move
     oder Flinkster. Sollte eine Regelung dieses Hinweises unwirksam sein, bleiben die übrigen davon unberührt.
+  </div>
+
+  <div class="copyright-notice">
+    Copyright &copy; Millux@marsrakete.de, 2026. Projekt:
+    <a href="https://github.com/marsrakete/carshareOrNot" target="_blank" rel="noopener noreferrer">https://github.com/marsrakete/carshareOrNot</a>
   </div>
 
 </div>
@@ -340,6 +374,11 @@
   <div class="provider-block">
     <div class="provider-head">
       <input class="provider-name" type="text">
+      <select class="provider-operation-mode" aria-label="Betriebsart">
+        <option value="station-based">Stationsbasiert</option>
+        <option value="free-floating">Free-Floating</option>
+      </select>
+      <button class="export-provider-btn" type="button">JSON exportieren</button>
       <button class="remove-btn" type="button">Anbieter entfernen</button>
     </div>
     <div class="tariff-table-scroll">
@@ -348,19 +387,20 @@
           <tr>
             <th>Klasse</th><th>Tarif</th><th>Abrechnung</th>
             <th>Grundgeb. €/Mon.</th><th>Zeitpreis €/Std.</th><th>Tagespreis €</th>
-            <th>Wochenpreis €</th><th>km bis 100 €</th><th>km ab 101 €</th><th>Anmeldegeb. €</th>
+            <th>Wochenpreis €</th><th>km bis 100 €</th><th>km ab 101 €</th><th>Anmeldegeb. €</th><th>Aktion</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
     </div>
+    <div class="provider-editor-actions"><button class="add-class-btn" type="button">+ Fahrzeugklasse</button></div>
   </div>
 </template>
 
 <template id="tariff-row-template">
   <tr class="tariff-value-row">
     <td data-cell="class"></td>
-    <td data-cell="tariff"></td>
+    <td><input type="text" class="tariff-name" aria-label="Tarifname"></td>
     <td>
       <select data-field="billingMode">
         <option value="time-and-distance">Zeit + Kilometer</option>
@@ -375,9 +415,10 @@
     <td><input type="number" step="0.01" min="0" data-field="kmBis100"></td>
     <td><input type="number" step="0.01" min="0" data-field="kmAb100"></td>
     <td><input type="number" step="1" min="0" data-field="anmeldegebuehr"></td>
+    <td><button class="remove-tariff-btn" type="button">Entfernen</button></td>
   </tr>
   <tr class="tariff-meta-row">
-    <td colspan="10">
+    <td colspan="11">
       <div class="tariff-meta">
         <label>Region<input type="text" data-meta-field="region"></label>
         <label>Zuletzt geprüft (leer = unbekannt)<input type="date" data-meta-field="lastVerifiedAt"></label>
@@ -388,6 +429,13 @@
   </tr>
 </template>
 
+<template id="tariff-class-actions-template">
+  <tr class="tariff-class-actions-row">
+    <td colspan="11"><button class="add-tariff-btn" type="button">+ Tarif</button><button class="remove-class-btn" type="button">Klasse entfernen</button></td>
+  </tr>
+</template>
+
+<script src="provider-data.generated.js"></script>
 <script src="providers.js"></script>
 <script src="calculator.js"></script>
 <script src="recommendations.js"></script>

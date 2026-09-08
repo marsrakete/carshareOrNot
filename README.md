@@ -5,7 +5,9 @@ Vergleiche die jährlichen Kosten eines eigenen Gebrauchtwagens mit denen von Ca
 
 Der Button „Teilen“ öffnet auf unterstützten Geräten das native Teilen-Menü. Andernfalls wird der Link in die Zwischenablage kopiert oder zum manuellen Kopieren angezeigt.
 
-Der Link enthält den vollständigen Rechnerzustand, einschließlich der eingegebenen Adresse, Standortwerte und angepassten Tarife. Die Daten stehen komprimiert im URL-Hash und werden deshalb beim Aufruf nicht als Teil der HTTP-Anfrage an den Webserver übertragen. Jeder Empfänger des Links kann die enthaltenen Einstellungen laden und lesen.
+Der Link enthält den vollständigen Rechnerzustand, einschließlich der eingegebenen Adresse, Standortwerte und angepassten Tarife. Unveränderte Standardtarife werden dabei nicht mitgesendet; der Empfänger ergänzt sie aus der Anwendung. Die Daten stehen komprimiert im URL-Hash und werden deshalb beim Aufruf nicht als Teil der HTTP-Anfrage an den Webserver übertragen. Jeder Empfänger des Links kann die enthaltenen Einstellungen laden und lesen. Ältere Links des ersten Formats bleiben lesbar.
+
+„Ergebnisgrafik“ erzeugt eine 1200 × 630 Pixel große PNG-Zusammenfassung. Auf Geräten mit Datei-Teilen wird sie über das native Teilen-Menü angeboten, andernfalls als Datei heruntergeladen.
 
 ## Lokal starten
 
@@ -21,7 +23,9 @@ Die Anwendung ist anschließend unter `http://localhost:5001/` erreichbar. Mit `
 
 - `index.html` enthält die semantische Seitenstruktur und wiederverwendbare Templates.
 - `styles.css` enthält Layout, Komponentenstile und responsive Regeln.
-- `providers.js` enthält Standardwerte, Tarifarten, Anbieter und Tarif-Migrationen.
+- `data/providers/*.json` enthält je Anbieter eine pflegbare Tarifdatei im Exportformat der Anwendung.
+- `provider-data.generated.js` wird mit `npm run build:providers` aus diesen JSON-Dateien erzeugt und vom Browser geladen.
+- `providers.js` enthält Standardwerte, Tarifarten sowie die Konvertierung und Migration der Anbieterdaten.
 - `calculator.js` enthält die zustandslose Kostenberechnung.
 - `app.js` enthält Zustand, Speicherung, Stationssuche und Rendering.
 - `start-server.ps1` stellt die Webdateien ausschließlich auf der lokalen Loopback-Adresse bereit.
@@ -38,10 +42,29 @@ Nach einer Änderung am OG-SVG werden die Bilddateien reproduzierbar neu erzeugt
 npm run build:og-image
 ```
 
+## Anbieter und Tarife pflegen
+
+Jeder mitgelieferte Anbieter besitzt eine eigene Quelldatei unter `data/providers`. Um einen neuen Anbieter aufzunehmen:
+
+1. Eine vorhandene JSON-Datei kopieren und passend benennen, zum Beispiel `book-n-drive.json`.
+2. Eine eindeutige `id`, den sichtbaren `name`, die Betriebsart und die Quellenangaben eintragen.
+3. Unter `classes` die angebotenen Fahrzeugklassen und deren Tarife pflegen.
+4. `npm run build:providers` ausführen, damit `provider-data.generated.js` neu erzeugt wird.
+5. `npm run check` ausführen. Die Prüfung schlägt auch fehl, wenn die erzeugte Browserdatei nicht zu den JSON-Quellen passt.
+
+Als `operationMode` sind `station-based` für stationsgebundene Angebote und `free-floating` für Free-Floating-Angebote zulässig. Neue JSON-Dateien werden beim Build automatisch erkannt und hinter den bekannten Anbietern einsortiert. Sie erscheinen anschließend in der Auswahl, im Tarifeditor und in den Empfehlungen. Bei Nutzern mit einem älteren lokalen Speicherstand ergänzt die Anwendung den neuen Standardanbieter beim nächsten Laden automatisch.
+
+Ein neuer Anbieter kann alternativ im Tarifeditor über „Weiteren Anbieter hinzufügen“ angelegt werden. Dort lassen sich Betriebsart, Fahrzeugklassen und Tarife hinzufügen, umbenennen und entfernen. „JSON exportieren“ speichert einen Anbieter im selben versionierten Format wie die Dateien unter `data/providers`. „Anbieter-JSON importieren“ zeigt vor dem Einlesen eine Zusammenfassung und ersetzt nach Bestätigung einen vorhandenen Anbieter mit derselben Kennung oder fügt einen neuen hinzu.
+
+`provider-data.generated.js` ist eine erzeugte Datei und wird nicht von Hand bearbeitet.
+
 ## Rechenmodell und Daten
 
 - Alltagsszenarien füllen ausschließlich die Nutzungsangaben mit plausiblen Startwerten. Neben Familien-, Pendel- und Pflegeprofilen stehen Vorlagen für Wochenendbeziehungen, urbane Paare, Ruhestand, Wenigfahrer sowie Freizeitfahrten bereit. Fahrzeugkosten, Anbieter, Standort und Tarifänderungen bleiben erhalten; die unmittelbar vorherigen Nutzungswerte lassen sich wiederherstellen.
+- Für Alltagswege lässt sich unterscheiden, ob ein Fahrzeug während Hin- und Rückweg gebucht bleibt, für die Rückfahrt neu gebucht wird oder eine Einwegfahrt möglich ist. Getrennte Rückfahrten verdoppeln die Zahl der Buchungen, ohne die gesamte Nutzungszeit zu verdoppeln.
 - Die Anbieterauswahl bietet zwei automatische Modi. „Empfehlung – ein Anbieter“ vergleicht alle passenden Tarife und zeigt die drei günstigsten. „Empfehlung – Mobilitätsmix“ darf jeder Fahrtart einen anderen Tarif zuordnen und berechnet Grund- sowie anteilige Anmeldegebühren für jeden tatsächlich genutzten Tarif genau einmal.
+- Der Mobilitätsmix bezieht außerdem transparente Rechenannahmen für Taxi/Ridehailing, Mietwagen und ÖPNV ein. Verwendet werden 4 € je Taxibuchung plus 2,20 €/km, 55 € je Mietwagentag plus 0,18 €/km und 58 € je Monat für ÖPNV. Das sind keine live abgefragten Angebote; regionale Preise und die praktische Verfügbarkeit müssen separat geprüft werden.
+- Unter dem Ergebnis erscheinen eine Kostenspanne, eine näherungsweise Break-even-Jahresfahrleistung und eine Erklärung der Empfehlung. Die Spanne variiert bei den Autokosten Wartung um 25 Prozent und Kraftstoff um 10 Prozent sowie bei der Alternative die Gesamtkosten um 10 Prozent. Der Break-even wird im Bereich von 0 bis 50.000 km gesucht.
 - Anbieter mit bestätigten null Stationen werden aus Empfehlungen ausgeschlossen. Solange für vorgeschlagene Anbieter keine bestätigten Stations- und Gehzeitwerte vorliegen, kennzeichnet die Oberfläche das Ergebnis ausdrücklich als rein rechnerische Empfehlung.
 - Stationsbasierte Anbieter verwenden Stationszahl und Gehzeit. Bei Free-Floating-Angeboten wie Miles und Free2move wird stattdessen erfasst, ob der Standort in einem Geschäftsgebiet liegt; verfügbare Fahrzeuge müssen direkt in der Anbieter-App geprüft werden. Bei der Rückgabe bleibt dort die Suche nach einem legalen öffentlichen Stellplatz Teil der Nutzung.
 - Die Free-Floating-Praxistauglichkeit kann automatisch oder manuell bewertet werden. Automatisch gelten Kindersitz oder regelmäßige Bring-/Abholfahrten als deutlicher Nachteil. Für die Empfehlungsreihenfolge werden Free-Floating-Kosten bei „nur als Ergänzung“ mit dem Faktor 1,25 und bei „eher ungeeignet“ mit 1,75 gewichtet. Dieser Rangwert wird nicht als Preis ausgegeben und verändert keine berechneten Kosten.
@@ -51,4 +74,8 @@ npm run build:og-image
 - Die detailliert angegebenen Strecken werden von der Jahresfahrleistung abgezogen. Die restlichen Kilometer werden gleichmäßig auf die Alltagsfahrten verteilt, damit Kilometerstaffeln pro Buchung greifen. Überschreiten die Detailstrecken die Jahresfahrleistung, werden sie proportional begrenzt.
 - Tarife verwenden ausdrücklich eine der Abrechnungsarten „Zeit + Kilometer“, „Kilometer + Tagespakete“ oder „Zeit, Kilometer inklusive“.
 - Der Betrachtungszeitraum bestimmt, über wie viele Jahre einmalige Anmeldegebühren verteilt werden.
-- Jeder Tarif kann Region, Quellen-URL und Datum der letzten Prüfung enthalten. Die Standardtarife lassen sich im Tarifeditor wiederherstellen; eigene Tarifänderungen und Anbieter werden dabei nach Bestätigung entfernt.
+- Beim eigenen Auto gibt es neben Wartung sowie Steuer/TÜV/Reifen ein zusätzliches freies Feld „Sonstiges“ (0 € Vorgabe). Alle Autokosten sind nichtnegativ; Erstattungen wie Kilometergeld gehören in ein eigenes Einnahmenmodell und werden derzeit nicht verrechnet.
+- Jeder Tarif kann Region, Quellen-URL und Datum der letzten Prüfung enthalten. Empfehlungen zeigen den dokumentierten Tarifstand oder weisen auf ein fehlendes beziehungsweise mehr als sechs Monate altes Prüfdatum hin. Die Standardtarife lassen sich im Tarifeditor wiederherstellen; eigene Tarifänderungen und Anbieter werden dabei nach Bestätigung entfernt.
+- Im Tarifeditor lässt sich jeder Anbieter einzeln als versionierte JSON-Datei exportieren. Der Export enthält weder Nutzungs- und Standortangaben noch Angaben zum eigenen Auto aus dem Rechner.
+
+Nach einer Änderung unter `data/providers` muss `npm run build:providers` ausgeführt werden. `npm run check` erkennt, wenn die erzeugte Browserdatei nicht mehr zu den JSON-Quellen passt.

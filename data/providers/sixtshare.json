@@ -1,0 +1,15 @@
+{
+  "formatVersion": 1,
+  "provider": {
+    "id": "sixtshare", "name": "Sixt Share", "operationMode": "free-floating",
+    "meta": { "sourceUrl": "https://www.sixt.de/share", "region": "Geschäftsgebiet des Anbieters", "lastVerifiedAt": "" },
+    "classes": [
+      { "id": "klein", "name": "Kleinwagen", "tariffs": [
+        { "id": "zeit", "name": "Minuten-/Stunden-/Tagestarif", "billingMode": "time-with-included-distance", "grundgebuehr": 0, "zeitpreis": 8, "tagespreis": 29, "wochenpreis": 145, "kmBis100": 0, "kmAb100": 0, "anmeldegebuehr": 0 }
+      ] },
+      { "id": "kombi", "name": "Kombi / SUV", "tariffs": [
+        { "id": "zeit", "name": "Minuten-/Stunden-/Tagestarif", "billingMode": "time-with-included-distance", "grundgebuehr": 0, "zeitpreis": 11, "tagespreis": 39, "wochenpreis": 195, "kmBis100": 0, "kmAb100": 0, "anmeldegebuehr": 0 }
+      ] }
+    ]
+  }
+}

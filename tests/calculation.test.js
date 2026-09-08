@@ -26,16 +26,18 @@ function createElementStub(){
  * @returns {Object} Exposed state and pure helpers for one isolated test.
  */
 function loadApplication(){
+  const providerDataPath = path.join(__dirname, '..', 'provider-data.generated.js');
   const providersPath = path.join(__dirname, '..', 'providers.js');
   const calculatorPath = path.join(__dirname, '..', 'calculator.js');
   const recommendationsPath = path.join(__dirname, '..', 'recommendations.js');
   const applicationPath = path.join(__dirname, '..', 'app.js');
+  const providerDataScript = fs.readFileSync(providerDataPath, 'utf8');
   const providersScript = fs.readFileSync(providersPath, 'utf8');
   const calculatorScript = fs.readFileSync(calculatorPath, 'utf8');
   const recommendationsScript = fs.readFileSync(recommendationsPath, 'utf8');
   const exposedScript = fs.readFileSync(applicationPath, 'utf8').replace(
     /\n\s*init\(\);/,
-    '\nglobalThis.__testApi = { state: state, calculate: calculate, calculateRecommendation: recommendationData.calculateRecommendation, defaultUsage: defaultUsage, defaultLocationForProvider: defaultLocationForProvider, normalizeTariffData: normalizeTariffData, normalizeSelection: normalizeSelection, encodeSharePayload: encodeSharePayload, decodeSharePayload: decodeSharePayload, isValidSharedState: isValidSharedState };'
+    '\nglobalThis.__testApi = { state: state, calculate: calculate, calculateRecommendation: recommendationData.calculateRecommendation, defaultUsage: defaultUsage, defaultLocationForProvider: defaultLocationForProvider, normalizeTariffData: normalizeTariffData, normalizeSelection: normalizeSelection, encodeSharePayload: encodeSharePayload, decodeSharePayload: decodeSharePayload, isValidSharedState: isValidSharedState, buildProviderExport: buildProviderExport, createCompactShareState: createCompactShareState, expandCompactShareState: expandCompactShareState, getLocationProvider: getLocationProvider };'
   );
   const element = createElementStub();
   const context = {
@@ -63,6 +65,7 @@ function loadApplication(){
   };
   context.globalThis = context;
   vm.createContext(context);
+  vm.runInContext(providerDataScript, context);
   vm.runInContext(providersScript, context);
   vm.runInContext(calculatorScript, context);
   vm.runInContext(recommendationsScript, context);
@@ -75,6 +78,22 @@ test('default comparison remains stable', function(){
   const result = app.calculate(app.state);
   assert.ok(Math.abs(result.own.total - 3754.6666666666665) < 0.001);
   assert.ok(Math.abs(result.cambio.total - 1907.3) < 0.001);
+});
+
+test('additional owned-car miscellaneous cost starts at zero and affects fixed costs', function(){
+  const app = loadApplication();
+  const baseline = app.calculate(app.state);
+  app.state.own.sonstigesExtra = 125;
+  const changed = app.calculate(app.state);
+  assert.equal(baseline.own.fix + 125, changed.own.fix);
+  assert.equal(baseline.own.total + 125, changed.own.total);
+});
+
+test('provider export uses the maintainable versioned JSON format', function(){
+  const app = loadApplication();
+  const exported = app.buildProviderExport(app.state.providers[0]);
+  const source = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'providers', 'cambio.json'), 'utf8'));
+  assert.equal(JSON.stringify(exported), JSON.stringify(source));
 });
 
 test('unknown locations do not invent availability', function(){
@@ -233,11 +252,31 @@ test('share payload round-trips every setting and rejects incomplete state', asy
   const expected = JSON.stringify(app.state);
   const payload = await app.encodeSharePayload(app.state);
   const wrapper = await app.decodeSharePayload(payload);
-  assert.equal(wrapper.version, 1);
+  assert.equal(wrapper.version, 2);
   assert.equal(JSON.stringify(wrapper.state), expected);
   assert.equal(app.isValidSharedState(wrapper.state), true);
   delete wrapper.state.usage.jahreskm;
   assert.equal(app.isValidSharedState(wrapper.state), false);
+});
+
+test('compact share state omits unchanged default providers and restores overrides', function(){
+  const app = loadApplication();
+  const compactDefault = app.createCompactShareState();
+  assert.equal(compactDefault.providerOverrides.length, 0);
+  assert.equal(Object.hasOwn(compactDefault, 'providers'), false);
+  app.state.providers[0].name = 'Cambio angepasst';
+  const compactChanged = app.createCompactShareState();
+  assert.equal(compactChanged.providerOverrides.length, 1);
+  const expanded = app.expandCompactShareState(JSON.parse(JSON.stringify(compactChanged)));
+  assert.equal(expanded.providers[0].name, 'Cambio angepasst');
+});
+
+test('split return creates two everyday bookings without doubling total usage time', function(){
+  const app = loadApplication();
+  app.state.usage.alltagsmodell = 'split-return';
+  const result = app.calculate(app.state);
+  assert.equal(result.cambio.tripCategories.everyday.trips, app.state.usage.kurzfahrten * 24);
+  assert.ok(Math.abs(result.cambio.tripCategories.everyday.timeCost - 244.8) < 0.001);
 });
 
 test('single-provider recommendation ranks the cheapest matching tariffs', function(){
@@ -251,6 +290,22 @@ test('single-provider recommendation ranks the cheapest matching tariffs', funct
   assert.equal(result.cambio.total, result.recommendation.rows[0].cost);
 });
 
+test('single-provider recommendation uses its result provider for location editing', function(){
+  const app = loadApplication();
+  app.state.selection.providerId = 'sixtshare';
+  app.state.selection.recommendationMode = 'recommend-single';
+  app.state.providers.forEach(function(provider){
+    if(provider.operationMode === 'free-floating'){
+      app.state.location.byProvider[provider.id] = { stationCount: null, walkMinutes: null, serviceAvailable: false, source: 'manual' };
+    }
+  });
+  const result = app.calculateRecommendation(app.state);
+  const locationProvider = app.getLocationProvider(result);
+  assert.equal(locationProvider.id, result.recommendation.primaryProviderId);
+  assert.notEqual(locationProvider.id, 'sixtshare');
+  assert.equal(locationProvider.operationMode, 'station-based');
+});
+
 test('mobility mix never costs more than its best single-provider option', function(){
   const app = loadApplication();
   app.state.selection.recommendationMode = 'recommend-single';
@@ -261,6 +316,8 @@ test('mobility mix never costs more than its best single-provider option', funct
   assert.ok(mixResult.recommendation.rows.length > 0);
   assert.ok(mixResult.cambio.total <= singleResult.cambio.total + 0.001);
   assert.ok(Math.abs(mixResult.cambio.total - mixResult.cambio.fix - mixResult.cambio.fuel - mixResult.cambio.km) < 0.001);
+  const displayedTotal = mixResult.recommendation.rows.reduce(function(sum, row){ return sum + row.cost; }, 0);
+  assert.ok(Math.abs(displayedTotal - mixResult.cambio.total) < 0.001);
 });
 
 test('mobility mix assigns different trip types and counts each selected tariff fee once', function(){
@@ -298,9 +355,9 @@ test('mobility mix assigns different trip types and counts each selected tariff 
   app.state.selection = { providerId: 'short', classId: 'klein', tariffId: 'short-rate', recommendationMode: 'recommend-mix' };
   const result = app.calculateRecommendation(app.state);
   const assignments = result.recommendation.rows.map(function(row){ return row.providerId; });
-  assert.equal(JSON.stringify(assignments), JSON.stringify(['short', 'long']));
-  assert.ok(Math.abs(result.cambio.fix - 22) < 0.001);
-  assert.ok(Math.abs(result.cambio.total - 841.4) < 0.001);
+  assert.equal(JSON.stringify(assignments), JSON.stringify(['short', 'supplement-rental']));
+  assert.ok(Math.abs(result.cambio.fix - 10) < 0.001);
+  assert.ok(Math.abs(result.cambio.total - 540.4) < 0.001);
 });
 
 test('recommendations exclude a provider with confirmed zero stations', function(){
@@ -365,4 +422,16 @@ test('legacy selections default to manual mode before share validation', functio
   app.normalizeSelection(app.state.selection);
   assert.equal(app.state.selection.recommendationMode, 'manual');
   assert.equal(app.isValidSharedState(app.state), true);
+});
+
+test('shared provider validation rejects unknown operation modes', function(){
+  const app = loadApplication();
+  app.state.providers[0].operationMode = 'unknown';
+  assert.equal(app.isValidSharedState(app.state), false);
+});
+
+test('shared state validation rejects unknown everyday booking models', function(){
+  const app = loadApplication();
+  app.state.usage.alltagsmodell = 'unknown';
+  assert.equal(app.isValidSharedState(app.state), false);
 });

@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "check": "node --test",
+    "check": "node scripts/build-provider-data.js --check && node --test",
     "test": "node --test",
+    "build:providers": "node scripts/build-provider-data.js",
     "build:og-image": "node scripts/build-og-images.js"
   },
   "dependencies": {

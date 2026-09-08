@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "provider": {
+    "id": "flinkster", "name": "Flinkster", "operationMode": "station-based",
+    "meta": { "sourceUrl": "https://www.flinkster.de", "region": "Deutschland, regional unterschiedlich", "lastVerifiedAt": "" },
+    "classes": [
+      { "id": "klein", "name": "Kleinwagen (Mini)", "tariffs": [
+        { "id": "bundesweit", "name": "Bundesweiter Tarif (ohne Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 0, "zeitpreis": 2.3, "tagespreis": 39, "wochenpreis": 195, "kmBis100": 0.18, "kmAb100": 0.18, "anmeldegebuehr": 0 }
+      ] },
+      { "id": "kombi", "name": "Kombi (Mittelklasse)", "tariffs": [
+        { "id": "bundesweit", "name": "Bundesweiter Tarif (ohne Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 0, "zeitpreis": 4, "tagespreis": 55, "wochenpreis": 275, "kmBis100": 0.19, "kmAb100": 0.19, "anmeldegebuehr": 0 }
+      ] },
+      { "id": "transporter", "name": "Transporter", "tariffs": [
+        { "id": "bundesweit", "name": "Bundesweiter Tarif (ohne Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 0, "zeitpreis": 8, "tagespreis": 80, "wochenpreis": 400, "kmBis100": 0.2, "kmAb100": 0.2, "anmeldegebuehr": 0 }
+      ] }
+    ]
+  }
+}

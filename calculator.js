@@ -53,7 +53,8 @@
       stellplatzAnnual = o.stellplatz * 12;
       parkausweisAnnual = 0;
     }
-    var fixOwn = depreciation + o.wartung + o.versicherung + o.sonstiges + stellplatzAnnual + parkausweisAnnual;
+    var extraOwnCost = Math.max(o.sonstigesExtra || 0, 0);
+    var fixOwn = depreciation + o.wartung + o.versicherung + o.sonstiges + extraOwnCost + stellplatzAnnual + parkausweisAnnual;
     var fuelOwn = (jahreskm / 100) * o.verbrauch * o.kraftstoffpreis;
     var kmCostOwn = 0; // im Kraftstoffposten enthalten
     var totalOwn = fixOwn + fuelOwn;
@@ -109,8 +110,13 @@
         return 100 * v.kmBis100 + (km - 100) * v.kmAb100;
       }
 
-      var shortTripsPerYear = Math.max(u.kurzfahrten, 0) * 12;
+      var shortTripOccasionsPerYear = Math.max(u.kurzfahrten, 0) * 12;
+      var shortTripsPerYear = shortTripOccasionsPerYear;
       var shortHours = Math.max(u.stundenprofahrt, 0);
+      if(u.alltagsmodell === 'split-return'){
+        shortTripsPerYear = shortTripOccasionsPerYear * 2;
+        shortHours = shortHours / 2;
+      }
       var shortTimeCostEach = shortHours * v.zeitpreis;
       if(v.tagespreis > 0){
         shortTimeCostEach = Math.min(shortTimeCostEach, v.tagespreis);
@@ -262,7 +268,8 @@
         tripCategories: categoryCosts,
         mileageAdjusted: plannedDetailedKm > jahreskm,
         implicitShortTrip: implicitShortTrip,
-        billingMode: v.billingMode
+        billingMode: v.billingMode,
+        everydayBookingModel: u.alltagsmodell || 'continuous'
       };
     }
 

@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "provider": {
+    "id": "miles", "name": "Miles", "operationMode": "free-floating",
+    "meta": { "sourceUrl": "https://www.miles-mobility.com", "region": "Geschäftsgebiet des Anbieters", "lastVerifiedAt": "" },
+    "classes": [
+      { "id": "klein", "name": "Kleinwagen (S)", "tariffs": [
+        { "id": "km", "name": "Kilometertarif", "billingMode": "distance-with-packages", "grundgebuehr": 0, "zeitpreis": 0, "tagespreis": 45, "wochenpreis": 225, "kmBis100": 0.99, "kmAb100": 0.19, "anmeldegebuehr": 0 }
+      ] },
+      { "id": "kombi", "name": "Kombi (M)", "tariffs": [
+        { "id": "km", "name": "Kilometertarif", "billingMode": "distance-with-packages", "grundgebuehr": 0, "zeitpreis": 0, "tagespreis": 49, "wochenpreis": 245, "kmBis100": 1.09, "kmAb100": 0.19, "anmeldegebuehr": 0 }
+      ] },
+      { "id": "transporter", "name": "Transporter (L)", "tariffs": [
+        { "id": "km", "name": "Kilometertarif", "billingMode": "distance-with-packages", "grundgebuehr": 0, "zeitpreis": 0, "tagespreis": 99, "wochenpreis": 495, "kmBis100": 1.29, "kmAb100": 0.39, "anmeldegebuehr": 0 }
+      ] }
+    ]
+  }
+}

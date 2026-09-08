@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "provider": {
+    "id": "cambio", "name": "Cambio", "operationMode": "station-based",
+    "meta": { "sourceUrl": "https://www.cambio-carsharing.de", "region": "Regional unterschiedlich", "lastVerifiedAt": "" },
+    "classes": [
+      { "id": "klein", "name": "Kleinwagen", "tariffs": [
+        { "id": "aktiv", "name": "Aktiv (mit Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 10, "zeitpreis": 1.7, "tagespreis": 21, "wochenpreis": 105, "kmBis100": 0.23, "kmAb100": 0.16, "anmeldegebuehr": 30 },
+        { "id": "basis", "name": "Basis (ohne Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 0, "zeitpreis": 3, "tagespreis": 30, "wochenpreis": 150, "kmBis100": 0.24, "kmAb100": 0.18, "anmeldegebuehr": 30 }
+      ] },
+      { "id": "kombi", "name": "Kombi", "tariffs": [
+        { "id": "aktiv", "name": "Aktiv (mit Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 10, "zeitpreis": 2.2, "tagespreis": 29, "wochenpreis": 145, "kmBis100": 0.25, "kmAb100": 0.16, "anmeldegebuehr": 30 },
+        { "id": "basis", "name": "Basis (ohne Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 0, "zeitpreis": 4, "tagespreis": 40, "wochenpreis": 200, "kmBis100": 0.24, "kmAb100": 0.18, "anmeldegebuehr": 30 }
+      ] },
+      { "id": "transporter", "name": "Transporter", "tariffs": [
+        { "id": "aktiv", "name": "Aktiv (mit Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 10, "zeitpreis": 4.9, "tagespreis": 49, "wochenpreis": 245, "kmBis100": 0.36, "kmAb100": 0.21, "anmeldegebuehr": 30 },
+        { "id": "basis", "name": "Basis (ohne Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 0, "zeitpreis": 7, "tagespreis": 70, "wochenpreis": 350, "kmBis100": 0.24, "kmAb100": 0.18, "anmeldegebuehr": 30 }
+      ] }
+    ]
+  }
+}

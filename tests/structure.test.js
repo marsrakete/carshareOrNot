@@ -19,6 +19,7 @@ function readProjectFile(relativePath){
 test('HTML loads separated assets in dependency order', function(){
   const html = readProjectFile('index.html');
   assert.match(html, /<link rel="stylesheet" href="styles\.css">/);
+  assert.ok(html.indexOf('src="provider-data.generated.js"') < html.indexOf('src="providers.js"'));
   assert.ok(html.indexOf('src="providers.js"') < html.indexOf('src="calculator.js"'));
   assert.ok(html.indexOf('src="calculator.js"') < html.indexOf('src="recommendations.js"'));
   assert.ok(html.indexOf('src="recommendations.js"') < html.indexOf('src="app.js"'));
@@ -45,8 +46,8 @@ test('form controls and tabs expose accessible relationships', function(){
   const html = readProjectFile('index.html');
   const labelledControls = [
     'own_kaufpreis', 'own_haltedauer', 'own_restwert', 'own_wartung', 'own_versicherung',
-    'own_sonstiges', 'own_verbrauch', 'own_kraftstoffpreis', 'own_stellplatz', 'own_parkausweis',
-    'use_jahreskm', 'use_vergleichsjahre', 'use_kurzfahrten', 'use_stundenprofahrt',
+    'own_sonstiges', 'own_sonstiges_extra', 'own_verbrauch', 'own_kraftstoffpreis', 'own_stellplatz', 'own_parkausweis',
+    'use_jahreskm', 'use_vergleichsjahre', 'use_kurzfahrten', 'use_stundenprofahrt', 'use_booking_model',
     'use_bringtageprowoche', 'use_bringwochenprojahr', 'use_bringkmprotag',
     'use_bringbuchungenprotag', 'use_bringstundenprobuchung', 'use_bringseparatanteil',
     'use_tagesausfluege', 'use_stundenproausflug', 'use_kmproausflug',
@@ -67,13 +68,36 @@ test('form controls and tabs expose accessible relationships', function(){
 test('tariffs contain billing and source metadata controls', function(){
   const html = readProjectFile('index.html');
   const providers = readProjectFile('providers.js');
+  const generatedProviders = readProjectFile('provider-data.generated.js');
+  const miles = readProjectFile('data/providers/miles.json');
   assert.match(html, /data-field="billingMode"/);
   assert.match(html, /data-field="wochenpreis"/);
   assert.match(html, /data-meta-field="region"/);
   assert.match(html, /data-meta-field="lastVerifiedAt"/);
   assert.match(html, /data-meta-field="sourceUrl"/);
+  assert.match(html, /class="export-provider-btn"/);
+  assert.match(html, /id="import-provider-btn"/);
+  assert.match(html, /class="add-class-btn"/);
+  assert.match(html, /class="add-tariff-btn"/);
+  assert.match(html, /class="remove-class-btn"/);
+  assert.match(html, /class="remove-tariff-btn"/);
+  assert.match(html, /class="provider-operation-mode"/);
   assert.match(providers, /lastVerifiedAt/);
-  assert.match(providers, /operationMode: 'free-floating'/);
+  assert.match(generatedProviders, /CarshareProviderDefinitions/);
+  assert.match(miles, /"operationMode": "free-floating"/);
+});
+
+test('decision aids and result image action are present', function(){
+  const html = readProjectFile('index.html');
+  const application = readProjectFile('app.js');
+  assert.match(html, /id="uncertainty-range"/);
+  assert.match(html, /id="uncertainty-own"/);
+  assert.match(html, /id="uncertainty-alternative"/);
+  assert.match(html, /id="break-even-value"/);
+  assert.match(html, /id="recommendation-reason"/);
+  assert.match(html, /id="share-image-btn"/);
+  assert.match(application, /function createResultImageBlob/);
+  assert.match(application, /function addRoundedRectanglePath/);
 });
 
 test('provider choice precedes provider-specific location controls', function(){

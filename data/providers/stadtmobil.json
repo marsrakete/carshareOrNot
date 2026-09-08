@@ -1,0 +1,21 @@
+{
+  "formatVersion": 1,
+  "provider": {
+    "id": "stadtmobil", "name": "Stadtmobil", "operationMode": "station-based",
+    "meta": { "sourceUrl": "https://www.stadtmobil.de", "region": "Regionalgesellschaft prüfen", "lastVerifiedAt": "" },
+    "classes": [
+      { "id": "klein", "name": "Kleinwagen", "tariffs": [
+        { "id": "vorteil", "name": "Vorteil (mit Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 10, "zeitpreis": 1.8, "tagespreis": 22, "wochenpreis": 110, "kmBis100": 0.22, "kmAb100": 0.18, "anmeldegebuehr": 30 },
+        { "id": "classic", "name": "Classic (ohne Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 0, "zeitpreis": 2.4, "tagespreis": 29, "wochenpreis": 145, "kmBis100": 0.28, "kmAb100": 0.25, "anmeldegebuehr": 30 }
+      ] },
+      { "id": "kombi", "name": "Kombi (Mittelklasse)", "tariffs": [
+        { "id": "vorteil", "name": "Vorteil (mit Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 10, "zeitpreis": 2.2, "tagespreis": 27, "wochenpreis": 135, "kmBis100": 0.25, "kmAb100": 0.21, "anmeldegebuehr": 30 },
+        { "id": "classic", "name": "Classic (ohne Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 0, "zeitpreis": 2.8, "tagespreis": 34, "wochenpreis": 170, "kmBis100": 0.31, "kmAb100": 0.28, "anmeldegebuehr": 30 }
+      ] },
+      { "id": "transporter", "name": "Transporter", "tariffs": [
+        { "id": "vorteil", "name": "Vorteil (mit Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 10, "zeitpreis": 3.5, "tagespreis": 43, "wochenpreis": 215, "kmBis100": 0.35, "kmAb100": 0.3, "anmeldegebuehr": 30 },
+        { "id": "classic", "name": "Classic (ohne Grundgebühr)", "billingMode": "time-and-distance", "grundgebuehr": 0, "zeitpreis": 4.4, "tagespreis": 53, "wochenpreis": 265, "kmBis100": 0.43, "kmAb100": 0.4, "anmeldegebuehr": 30 }
+      ] }
+    ]
+  }
+}
