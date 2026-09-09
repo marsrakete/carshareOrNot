@@ -62,7 +62,9 @@ test('form controls and tabs expose accessible relationships', function(){
   assert.match(html, /role="tab" aria-selected="true" aria-controls="tab-rechner"/);
   assert.match(html, /role="tabpanel" aria-labelledby="tab-btn-rechner"/);
   assert.match(html, /id="use_parkplatz" aria-labelledby="parking-label"/);
-  assert.match(html, /id="use_kindersitz" aria-labelledby="child-seat-label"/);
+  assert.match(html, /id="use_child_seat_infant_count"/);
+  assert.match(html, /id="use_child_seat_booster_count"/);
+  assert.match(html, /template id="child-seat-class-row-template"/);
 });
 
 test('tariffs contain billing and source metadata controls', function(){
@@ -73,6 +75,7 @@ test('tariffs contain billing and source metadata controls', function(){
   assert.match(html, /data-field="billingMode"/);
   assert.match(html, /data-field="wochenpreis"/);
   assert.match(html, /data-meta-field="region"/);
+  assert.match(html, /data-child-seat-field="infant"/);
   assert.match(html, /data-meta-field="lastVerifiedAt"/);
   assert.match(html, /data-meta-field="sourceUrl"/);
   assert.match(html, /class="export-provider-btn"/);

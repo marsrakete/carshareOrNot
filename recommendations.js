@@ -57,6 +57,52 @@
   }
 
   /**
+   * Checks whether the profile needs child-seat guidance.
+   * @param {Object} usage - Usage values from the calculator state.
+   * @returns {boolean} True when a seat is needed or an older value needs review.
+   */
+  function hasChildSeatNeed(usage){
+    return usage.childSeatInfantCount > 0 || usage.childSeatBoosterCount > 0 || usage.childSeatNeedsReview === true;
+  }
+
+  /**
+   * Describes child-seat availability for the selected vehicle class.
+   * @param {Object} usage - Usage values with requested seat counts.
+   * @param {Object} childSeats - Availability data configured for the vehicle class.
+   * @returns {string} Practical note for a recommendation row.
+   */
+  function describeChildSeatAvailability(usage, childSeats){
+    if(!hasChildSeatNeed(usage)){
+      return '';
+    }
+    if(usage.childSeatNeedsReview === true){
+      return 'Kindersitzbedarf bitte nach Gewicht ergänzen.';
+    }
+    var notes = [];
+    if(usage.childSeatInfantCount > 0){
+      if(childSeats.infant === 'included'){
+        notes.push(usage.childSeatInfantCount + ' Sitz(e) bis 15 kg vorhanden');
+      } else if(childSeats.infant === 'check'){
+        notes.push('Sitz bis 15 kg im Fahrzeug prüfen');
+      } else {
+        notes.push(usage.childSeatInfantCount + ' Sitz(e) bis 15 kg selbst mitbringen');
+      }
+    }
+    if(usage.childSeatBoosterCount > 0){
+      if(childSeats.booster === 'included' && childSeats.boosterCount >= usage.childSeatBoosterCount){
+        notes.push(usage.childSeatBoosterCount + ' Sitz(e) von 15 bis 36 kg vorhanden');
+      } else if(childSeats.booster === 'included'){
+        notes.push('Nur ' + childSeats.boosterCount + ' Sitz(e) von 15 bis 36 kg vorhanden');
+      } else if(childSeats.booster === 'check'){
+        notes.push('Sitz von 15 bis 36 kg im Fahrzeug prüfen');
+      } else {
+        notes.push(usage.childSeatBoosterCount + ' Sitz(e) von 15 bis 36 kg selbst mitbringen');
+      }
+    }
+    return notes.join(' · ');
+  }
+
+  /**
    * Leitet die wirksame Free-Floating-Eignung aus Auswahl und Familienprofil ab.
    * @param {Object} state - Vollständiger Anwendungszustand.
    * @returns {Object} Wirksame Stufe, Gewichtungsfaktor und verständliche Begründung.
@@ -70,11 +116,11 @@
     var reason = '';
     if(selectedFit === FREE_FLOATING_AUTO){
       var hasSchoolRuns = state.usage.bringtageprowoche > 0 && state.usage.bringwochenprojahr > 0 && state.usage.bringseparatanteil > 0;
-      if(state.usage.kindersitz || hasSchoolRuns){
+      if(hasChildSeatNeed(state.usage) || hasSchoolRuns){
         effectiveFit = FREE_FLOATING_UNSUITABLE;
-        if(state.usage.kindersitz && hasSchoolRuns){
+        if(hasChildSeatNeed(state.usage) && hasSchoolRuns){
           reason = 'automatisch herabgestuft: Kindersitz und regelmäßige Bringfahrten';
-        } else if(state.usage.kindersitz){
+        } else if(hasChildSeatNeed(state.usage)){
           reason = 'automatisch herabgestuft: Kindersitz benötigt';
         } else {
           reason = 'automatisch herabgestuft: regelmäßige Bringfahrten';
@@ -233,6 +279,7 @@
           operationMode: provider.operationMode,
           rankingScore: ranking.value,
           fitNote: ranking.note,
+          childSeatNote: describeChildSeatAvailability(state.usage, selectedClass.childSeats),
           freshnessNote: describeTariffFreshness(selectedTariff.v.meta),
           result: result
         });
@@ -272,6 +319,7 @@
       rankingRows.push({
         label: candidate.providerName + ' · ' + candidate.tariffName,
         detail: candidate.fitNote,
+        childSeatNote: candidate.childSeatNote,
         freshnessNote: candidate.freshnessNote,
         cost: candidate.result.cambio.total,
         providerId: candidate.providerId,
@@ -458,6 +506,9 @@
       if(assignment.candidate.fitNote){
         assignmentDetail += ' · ' + assignment.candidate.fitNote;
       }
+      if(assignment.candidate.childSeatNote){
+        assignmentDetail += ' · ' + assignment.candidate.childSeatNote;
+      }
       var rowCost = assignment.category.total;
       if(displayedFixedProviderIds.indexOf(assignment.candidate.providerId) === -1){
         rowCost += assignment.candidate.result.cambio.fix;
@@ -607,6 +658,7 @@
     FREE_FLOATING_UNSUITABLE: FREE_FLOATING_UNSUITABLE,
     isKnownMode: isKnownMode,
     isKnownFreeFloatingFit: isKnownFreeFloatingFit,
+    describeChildSeatAvailability: describeChildSeatAvailability,
     resolveFreeFloatingFit: resolveFreeFloatingFit,
     calculateRecommendation: calculateRecommendation
   };

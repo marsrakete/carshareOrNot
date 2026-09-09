@@ -402,10 +402,17 @@ test('legacy tariff data receives billing and source metadata', function(){
   const legacyProviders = JSON.parse(JSON.stringify(app.state.providers));
   delete legacyProviders[0].classes[0].tariffs[0].v.billingMode;
   delete legacyProviders[0].classes[0].tariffs[0].v.meta;
+  delete legacyProviders[0].classes[0].childSeats;
   const normalized = app.normalizeTariffData(legacyProviders);
   const values = normalized[0].classes[0].tariffs[0].v;
   assert.equal(values.billingMode, 'time-and-distance');
   assert.match(values.meta.sourceUrl, /^https:\/\//);
+  assert.equal(values.meta.lastVerifiedAt, '2026-09-07');
+  assert.equal(JSON.stringify(normalized[0].classes[0].childSeats), JSON.stringify({ infant: 'bring-own', booster: 'included', boosterCount: 1 }));
+  const fallbackProviders = JSON.parse(JSON.stringify(app.state.providers));
+  fallbackProviders[0].classes[0].childSeats = { infant: 'bring-own', booster: 'bring-own', boosterCount: 0 };
+  const migratedFallback = app.normalizeTariffData(fallbackProviders);
+  assert.equal(migratedFallback[0].classes[0].childSeats.booster, 'included');
 });
 
 test('registration fee uses the independent comparison horizon', function(){
@@ -611,11 +618,12 @@ test('free-floating providers use business-area availability instead of station 
 test('automatic family profile downranks free-floating without changing tariff costs', function(){
   const app = loadApplication();
   app.state.selection.recommendationMode = 'recommend-single';
-  app.state.usage.kindersitz = true;
+  app.state.usage.childSeatInfantCount = 1;
   const familyResult = app.calculateRecommendation(app.state);
   const familyProvider = app.state.providers.find(function(provider){ return provider.id === familyResult.recommendation.primaryProviderId; });
   assert.equal(familyProvider.operationMode, 'station-based');
   assert.match(familyResult.recommendation.fitSummary, /Kindersitz/);
+  assert.ok(familyResult.recommendation.rows.some(function(row){ return /Sitz.*15 kg/.test(row.childSeatNote); }));
 
   app.state.usage.freefloatingFit = 'suitable';
   const overriddenResult = app.calculateRecommendation(app.state);

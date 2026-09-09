@@ -251,6 +251,7 @@
 
   .toggle-row{ display: flex; align-items: center; justify-content: space-between; padding: 8px 0; }
   .toggle-row span{ font-size: 14px; }
+  .child-seat-needs{ padding: 8px 0; }
   .switch{ position: relative; width: 42px; height: 24px; flex-shrink: 0; }
   .switch input{ opacity: 0; width: 0; height: 0; }
   .slider{
@@ -504,6 +505,11 @@
     border-radius: var(--radius-s); font-family: 'Space Grotesk', sans-serif; font-size: 13px;
   }
   table.tariff-table select{ width: 164px; text-align: left; }
+  .child-seat-class-row td{ background: var(--surface-soft); }
+  .child-seat-class-editor{ display: flex; flex-wrap: wrap; align-items: end; gap: 10px 16px; }
+  .child-seat-class-editor label{ display: grid; gap: 4px; color: var(--ink-soft); font-size: 12px; }
+  .child-seat-class-editor select, .child-seat-class-editor input{ min-height: 32px; }
+  .child-seat-class-title{ font-weight: 600; }
   .tariff-meta-row td{ background: var(--surface-muted); padding: 10px 14px 12px !important; }
   .tariff-meta{ display: grid; grid-template-columns: minmax(170px,1fr) minmax(140px,.7fr) minmax(240px,1.4fr) auto; gap: 10px; }
   .tariff-meta label{ color: var(--ink-soft); font-size: 11.5px; }

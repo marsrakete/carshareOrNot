@@ -9,6 +9,7 @@
   var BILLING_DISTANCE_WITH_PACKAGES = providerData.BILLING_DISTANCE_WITH_PACKAGES;
   var BILLING_TIME_WITH_INCLUDED_DISTANCE = providerData.BILLING_TIME_WITH_INCLUDED_DISTANCE;
   var isKnownBillingMode = providerData.isKnownBillingMode;
+  var isKnownChildSeatAvailability = providerData.isKnownChildSeatAvailability;
   var defaultOwn = providerData.defaultOwn;
   var defaultUsage = providerData.defaultUsage;
   var tariff = providerData.tariff;
@@ -18,6 +19,7 @@
   var MODE_MANUAL = recommendationData.MODE_MANUAL;
   var MODE_SINGLE = recommendationData.MODE_SINGLE;
   var MODE_MIX = recommendationData.MODE_MIX;
+  var describeChildSeatAvailability = recommendationData.describeChildSeatAvailability;
   /**
    * Creates the default location estimate for one provider.
    * @param {string} providerId - Provider identifier.
@@ -83,12 +85,12 @@
     {
       id: 'family-commute', title: 'Familie, Pendler, 2 Kleinkinder', iconId: 'scenario-icon-family',
       summary: '12.000 km · 5 Kita-Tage/Woche · 2 Urlaube',
-      values: { jahreskm: 12000, kurzfahrten: 20, stundenprofahrt: 1.5, bringtageprowoche: 5, bringwochenprojahr: 46, bringkmprotag: 16, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 60, kindersitz: true, tagesausfluege: 8, stundenproausflug: 8, kmproausflug: 100, mehrtagesfahrten: 4, tageprofahrt: 3, kmprofahrt: 300, urlaubsfahrten: 2, tageprourlaub: 7, kmprourlaub: 800, flex: 'teilweise', freefloatingFit: 'auto' }
+      values: { jahreskm: 12000, kurzfahrten: 20, stundenprofahrt: 1.5, bringtageprowoche: 5, bringwochenprojahr: 46, bringkmprotag: 16, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 60, childSeatInfantCount: 2, childSeatBoosterCount: 0, childSeatNeedsReview: false, tagesausfluege: 8, stundenproausflug: 8, kmproausflug: 100, mehrtagesfahrten: 4, tageprofahrt: 3, kmprofahrt: 300, urlaubsfahrten: 2, tageprourlaub: 7, kmprourlaub: 800, flex: 'teilweise', freefloatingFit: 'auto' }
     },
     {
       id: 'family-homeoffice', title: 'Familie, kein Pendeln, 2 Kleinkinder', iconId: 'scenario-icon-home',
       summary: '7.500 km · 5 Kita-Tage/Woche · mehr Ausflüge',
-      values: { jahreskm: 7500, kurzfahrten: 8, stundenprofahrt: 2, bringtageprowoche: 5, bringwochenprojahr: 46, bringkmprotag: 16, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 60, kindersitz: true, tagesausfluege: 12, stundenproausflug: 8, kmproausflug: 100, mehrtagesfahrten: 5, tageprofahrt: 3, kmprofahrt: 250, urlaubsfahrten: 2, tageprourlaub: 7, kmprourlaub: 700, flex: 'teilweise', freefloatingFit: 'auto' }
+      values: { jahreskm: 7500, kurzfahrten: 8, stundenprofahrt: 2, bringtageprowoche: 5, bringwochenprojahr: 46, bringkmprotag: 16, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 60, childSeatInfantCount: 2, childSeatBoosterCount: 0, childSeatNeedsReview: false, tagesausfluege: 12, stundenproausflug: 8, kmproausflug: 100, mehrtagesfahrten: 5, tageprofahrt: 3, kmprofahrt: 250, urlaubsfahrten: 2, tageprourlaub: 7, kmprourlaub: 700, flex: 'teilweise', freefloatingFit: 'auto' }
     },
     {
       id: 'care-weekly', title: 'Pflegefahrten wöchentlich', iconId: 'scenario-icon-care',
@@ -108,7 +110,7 @@
     {
       id: 'single-parent-weekend', title: 'Alleinerziehend & Wochenendbeziehung', iconId: 'scenario-icon-family',
       summary: '7.000 km · 40 Wochenenden · je 100 km',
-      values: { jahreskm: 7000, kurzfahrten: 6, stundenprofahrt: 2, bringtageprowoche: 2, bringwochenprojahr: 40, bringkmprotag: 12, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 50, kindersitz: true, tagesausfluege: 2, stundenproausflug: 8, kmproausflug: 100, mehrtagesfahrten: 40, tageprofahrt: 2, kmprofahrt: 100, urlaubsfahrten: 1, tageprourlaub: 7, kmprourlaub: 600, flex: 'teilweise', freefloatingFit: 'auto' }
+      values: { jahreskm: 7000, kurzfahrten: 6, stundenprofahrt: 2, bringtageprowoche: 2, bringwochenprojahr: 40, bringkmprotag: 12, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 50, childSeatInfantCount: 0, childSeatBoosterCount: 1, childSeatNeedsReview: false, tagesausfluege: 2, stundenproausflug: 8, kmproausflug: 100, mehrtagesfahrten: 40, tageprofahrt: 2, kmprofahrt: 100, urlaubsfahrten: 1, tageprourlaub: 7, kmprourlaub: 600, flex: 'teilweise', freefloatingFit: 'auto' }
     },
     {
       id: 'urban-couple', title: 'Paar, städtisch & Homeoffice', iconId: 'scenario-icon-home',
@@ -339,6 +341,25 @@
   }
 
   /**
+   * Migrates saved usage values to the age-specific child-seat model.
+   * @param {Object} usage - Persisted usage values from local storage.
+   * @returns {Object} Complete usage values with bounded child-seat counts.
+   */
+  function normalizeStoredUsage(usage){
+    var normalized = Object.assign(defaultUsage(), usage);
+    var hasInfantCount = typeof usage.childSeatInfantCount === 'number';
+    var hasBoosterCount = typeof usage.childSeatBoosterCount === 'number';
+    normalized.childSeatInfantCount = Math.min(4, Math.max(0, Math.floor(Number(normalized.childSeatInfantCount) || 0)));
+    normalized.childSeatBoosterCount = Math.min(4, Math.max(0, Math.floor(Number(normalized.childSeatBoosterCount) || 0)));
+    normalized.childSeatNeedsReview = normalized.childSeatNeedsReview === true;
+    if(!hasInfantCount && !hasBoosterCount && usage.kindersitz === true){
+      normalized.childSeatNeedsReview = true;
+    }
+    delete normalized.kindersitz;
+    return normalized;
+  }
+
+  /**
    * Checks whether an object contains finite non-negative numbers for all named fields.
    * @param {Object} value - Object containing numeric settings.
    * @param {Array<string>} fields - Required numeric field names.
@@ -351,6 +372,24 @@
     return fields.every(function(field){
       return typeof value[field] === 'number' && isFinite(value[field]) && value[field] >= 0 && value[field] <= limits.MAX_NUMERIC_VALUE;
     });
+  }
+
+  /**
+   * Validates one vehicle class's child-seat information.
+   * @param {Object} childSeats - Availability data for infant and booster seats.
+   * @returns {boolean} True when the availability data is complete and bounded.
+   */
+  function hasValidChildSeats(childSeats){
+    if(!isObject(childSeats) || !isKnownChildSeatAvailability(childSeats.infant) || !isKnownChildSeatAvailability(childSeats.booster)){
+      return false;
+    }
+    if(typeof childSeats.boosterCount !== 'number' || !isFinite(childSeats.boosterCount) || childSeats.boosterCount < 0 || childSeats.boosterCount > 4 || Math.floor(childSeats.boosterCount) !== childSeats.boosterCount){
+      return false;
+    }
+    if(childSeats.booster === providerData.CHILD_SEAT_INCLUDED){
+      return childSeats.boosterCount > 0;
+    }
+    return childSeats.boosterCount === 0;
   }
 
   /**
@@ -378,6 +417,9 @@
       }
       return provider.classes.every(function(cls){
         if(!isObject(cls) || typeof cls.id !== 'string' || typeof cls.name !== 'string' || !Array.isArray(cls.tariffs) || cls.tariffs.length === 0){
+          return false;
+        }
+        if(!hasValidChildSeats(cls.childSeats)){
           return false;
         }
         return cls.tariffs.every(function(selectedTariff){
@@ -410,12 +452,16 @@
       'bringtageprowoche','bringwochenprojahr','bringkmprotag','bringbuchungenprotag','bringstundenprobuchung','bringseparatanteil',
       'tagesausfluege','stundenproausflug','kmproausflug',
       'mehrtagesfahrten','tageprofahrt','kmprofahrt',
-      'urlaubsfahrten','tageprourlaub','kmprourlaub'
+      'urlaubsfahrten','tageprourlaub','kmprourlaub',
+      'childSeatInfantCount','childSeatBoosterCount'
     ];
     if(!isObject(snapshot) || !hasValidNumbers(snapshot.own, ownFields) || !hasValidNumbers(snapshot.usage, usageFields)){
       return false;
     }
-    if(typeof snapshot.usage.flex !== 'string' || !recommendationData.isKnownFreeFloatingFit(snapshot.usage.freefloatingFit) || typeof snapshot.usage.parkplatz !== 'boolean' || typeof snapshot.usage.kindersitz !== 'boolean'){
+    if(snapshot.usage.childSeatInfantCount > 4 || snapshot.usage.childSeatBoosterCount > 4 || Math.floor(snapshot.usage.childSeatInfantCount) !== snapshot.usage.childSeatInfantCount || Math.floor(snapshot.usage.childSeatBoosterCount) !== snapshot.usage.childSeatBoosterCount){
+      return false;
+    }
+    if(typeof snapshot.usage.flex !== 'string' || !recommendationData.isKnownFreeFloatingFit(snapshot.usage.freefloatingFit) || typeof snapshot.usage.parkplatz !== 'boolean' || typeof snapshot.usage.childSeatNeedsReview !== 'boolean'){
       return false;
     }
     if(snapshot.usage.alltagsmodell !== 'continuous' && snapshot.usage.alltagsmodell !== 'split-return' && snapshot.usage.alltagsmodell !== 'one-way'){
@@ -890,7 +936,7 @@
       if(res && res.value){
         var parsed = JSON.parse(res.value);
         if(parsed.own) state.own = providerData.normalizeOwn(parsed.own);
-        if(parsed.usage) state.usage = Object.assign(defaultUsage(), parsed.usage);
+        if(parsed.usage) state.usage = normalizeStoredUsage(parsed.usage);
         if(parsed.location){
           if(parsed.location.byProvider){
             state.location = defaultLocation();
@@ -1178,7 +1224,8 @@
     document.getElementById('use_bringbuchungenprotag').value = u.bringbuchungenprotag;
     document.getElementById('use_bringstundenprobuchung').value = u.bringstundenprobuchung;
     document.getElementById('use_bringseparatanteil').value = u.bringseparatanteil;
-    document.getElementById('use_kindersitz').checked = !!u.kindersitz;
+    document.getElementById('use_child_seat_infant_count').value = u.childSeatInfantCount;
+    document.getElementById('use_child_seat_booster_count').value = u.childSeatBoosterCount;
     document.getElementById('use_tagesausfluege').value = u.tagesausfluege;
     document.getElementById('use_stundenproausflug').value = u.stundenproausflug;
     document.getElementById('use_kmproausflug').value = u.kmproausflug;
@@ -1720,6 +1767,18 @@
         text: loc.stationCount + ' Station(en) in der Nähe. Bei rund ' + loc.walkMinutes + ' Gehminuten bis zur nächsten Station ist Carsharing für spontane Fahrten wenig praktikabel.' + flexHint });
     }
 
+    if(!r.recommendation && (u.childSeatInfantCount > 0 || u.childSeatBoosterCount > 0 || u.childSeatNeedsReview)){
+      var selectedProvider = findProvider(state.selection.providerId);
+      var selectedClass = null;
+      if(selectedProvider){
+        selectedClass = findClass(selectedProvider, state.selection.classId);
+      }
+      if(selectedClass){
+        cards.push({ tone: 'mid', title: 'Kindersitze in der gewählten Fahrzeugklasse',
+          text: describeChildSeatAvailability(u, selectedClass.childSeats) + '. Bitte die Ausstattung vor der Buchung prüfen.' });
+      }
+    }
+
     if(r.cambio && u.bringtageprowoche > 0 && u.bringwochenprojahr > 0){
       var schoolRunTone = 'good';
       var schoolRunTitle = 'Bring- und Abholfahrten sind eingerechnet';
@@ -1735,10 +1794,10 @@
         schoolRunTitle = 'Der Stationsweg erschwert regelmäßige Bringfahrten';
         schoolRunNotes.push('Der Weg zur Station kommt bei jeder einzelnen Buchung zur Fahrzeit hinzu.');
       }
-      if(u.kindersitz){
+      if(r.recommendation && (u.childSeatInfantCount > 0 || u.childSeatBoosterCount > 0 || u.childSeatNeedsReview)){
         schoolRunTone = 'mid';
         schoolRunTitle = 'Kindersitz und Verfügbarkeit vorher klären';
-        schoolRunNotes.push('Ein passender Kindersitz ist bei Carsharing-Fahrzeugen nicht selbstverständlich; auch Transport und Aufbewahrung können zusätzlichen Aufwand verursachen.');
+        schoolRunNotes.push('Je nach Anbieter, Fahrzeugklasse und Sitzart ist ein eigener Sitz nötig oder die Ausstattung muss vor der Buchung geprüft werden.');
       }
       if(u.bringseparatanteil < 100){
         schoolRunNotes.push('Der kombinierte Anteil wird anderen ohnehin stattfindenden Wegen zugerechnet.');
@@ -1951,6 +2010,12 @@
       }
       element.querySelector('.recommendation-label').textContent = label;
       var detail = row.detail || '';
+      if(row.childSeatNote){
+        if(detail){
+          detail += ' · ';
+        }
+        detail += row.childSeatNote;
+      }
       if(row.freshnessNote){
         if(detail){
           detail += ' · ';
@@ -1985,7 +2050,7 @@
 
   /**
    * Calculates the annual mileage at which owned car and selected alternative cost roughly the same.
-   * @returns {number|null} Approximate break-even mileage or null outside the search range.
+   * @returns {number|null} Approximate break-even mileage or null without a match up to 50,000 kilometers.
    */
   function calculateBreakEvenMileage(){
     var lowMileage = 0;
@@ -2041,9 +2106,9 @@
       reason = 'Den größten Ausschlag geben die nutzungsabhängigen Kosten: ' + fmtEUR(ownVariableCost) + ' fürs eigene Auto gegenüber ' + fmtEUR(providerVariableCost) + ' für die Alternative. ';
     }
     if(difference >= 0){
-      reason += result.providerName + ' liegt aktuell rund ' + fmtEUR(difference) + ' darunter.';
+      reason += 'Unter Berücksichtigung aller Kosten liegt ' + result.providerName + ' aktuell rund ' + fmtEUR(difference) + ' unter dem eigenen Auto.';
     } else {
-      reason += 'Die gewählte Alternative liegt aktuell rund ' + fmtEUR(Math.abs(difference)) + ' darüber.';
+      reason += 'Unter Berücksichtigung aller Kosten liegt die gewählte Alternative aktuell rund ' + fmtEUR(Math.abs(difference)) + ' über dem eigenen Auto.';
     }
     if(state.usage.alltagsmodell === 'one-way'){
       reason += ' Deine Einwegfahrten begünstigen flexible Rückgabeformen.';
@@ -2072,7 +2137,7 @@
     alternativeRangeElement.textContent = fmtEUR(range.providerLow) + '–' + fmtEUR(range.providerHigh);
     var breakEvenMileage = calculateBreakEvenMileage();
     if(breakEvenMileage === null){
-      breakEvenElement.textContent = 'Außerhalb 0–50.000 km';
+      breakEvenElement.textContent = 'Bis 50.000 km/Jahr kein Kostengleichstand';
     } else {
       breakEvenElement.textContent = breakEvenMileage.toLocaleString('de-DE') + ' km/Jahr';
     }
@@ -2197,7 +2262,9 @@
       bringbuchungenprotag: +document.getElementById('use_bringbuchungenprotag').value || 0,
       bringstundenprobuchung: +document.getElementById('use_bringstundenprobuchung').value || 0,
       bringseparatanteil: +document.getElementById('use_bringseparatanteil').value || 0,
-      kindersitz: document.getElementById('use_kindersitz').checked,
+      childSeatInfantCount: +document.getElementById('use_child_seat_infant_count').value || 0,
+      childSeatBoosterCount: +document.getElementById('use_child_seat_booster_count').value || 0,
+      childSeatNeedsReview: false,
       tagesausfluege: +document.getElementById('use_tagesausfluege').value || 0,
       stundenproausflug: +document.getElementById('use_stundenproausflug').value || 0,
       kmproausflug: +document.getElementById('use_kmproausflug').value || 0,
@@ -2241,7 +2308,8 @@
       r.addEventListener('change', function(){ readUsageFromInputs(); render(); scheduleSave(); });
     });
     document.getElementById('use_parkplatz').addEventListener('change', function(){ readUsageFromInputs(); render(); scheduleSave(); });
-    document.getElementById('use_kindersitz').addEventListener('change', function(){ readUsageFromInputs(); renderFreeFloatingFitHint(); render(); scheduleSave(); });
+    document.getElementById('use_child_seat_infant_count').addEventListener('input', function(){ readUsageFromInputs(); renderFreeFloatingFitHint(); render(); scheduleSave(); });
+    document.getElementById('use_child_seat_booster_count').addEventListener('input', function(){ readUsageFromInputs(); renderFreeFloatingFitHint(); render(); scheduleSave(); });
     document.getElementById('use_freefloating_fit').addEventListener('change', function(){ readUsageFromInputs(); renderFreeFloatingFitHint(); render(); scheduleSave(); });
     document.getElementById('use_booking_model').addEventListener('change', function(){ readUsageFromInputs(); render(); scheduleSave(); });
     document.getElementById('scenario-more-btn').addEventListener('click', toggleAdditionalUsageScenarios);
@@ -2374,7 +2442,12 @@
       classes: []
     };
     provider.classes.forEach(function(providerClass){
-      var classDefinition = { id: providerClass.id, name: providerClass.name, tariffs: [] };
+      var classDefinition = {
+        id: providerClass.id,
+        name: providerClass.name,
+        childSeats: providerData.normalizeChildSeats(providerClass.childSeats),
+        tariffs: []
+      };
       providerClass.tariffs.forEach(function(selectedTariff){
         var values = selectedTariff.v;
         var tariffDefinition = {
@@ -2436,7 +2509,7 @@
    */
   function addProviderClass(provider){
     provider.classes.push({
-      id: uid('klasse'), name: 'Neue Fahrzeugklasse', tariffs: [
+      id: uid('klasse'), name: 'Neue Fahrzeugklasse', childSeats: providerData.normalizeChildSeats(null), tariffs: [
         { id: uid('tarif'), name: 'Standard', v: tariff(0, 2, 25, 0.25, 0.18, 0) }
       ]
     });
@@ -2498,6 +2571,7 @@
     var providerTemplate = document.getElementById('provider-block-template');
     var tariffRowTemplate = document.getElementById('tariff-row-template');
     var classActionsTemplate = document.getElementById('tariff-class-actions-template');
+    var childSeatClassRowTemplate = document.getElementById('child-seat-class-row-template');
     var providerFragment = document.createDocumentFragment();
     var priceLabels = {
       grundgebuehr: 'Grundgebühr pro Monat', zeitpreis: 'Zeitpreis pro Stunde',
@@ -2534,6 +2608,7 @@
       var tbody = block.querySelector('tbody');
 
       provider.classes.forEach(function(cls){
+        cls.childSeats = providerData.normalizeChildSeats(cls.childSeats);
         cls.tariffs.forEach(function(t, idx){
           var rowFragment = tariffRowTemplate.content.cloneNode(true);
           var tr = rowFragment.querySelector('.tariff-value-row');
@@ -2591,6 +2666,26 @@
           removeTariffButton.addEventListener('click', function(){ removeClassTariff(cls, t); });
           tbody.appendChild(rowFragment);
         });
+        var childSeatClassRow = childSeatClassRowTemplate.content.firstElementChild.cloneNode(true);
+        Array.prototype.forEach.call(childSeatClassRow.querySelectorAll('[data-child-seat-field]'), function(input){
+          var field = input.getAttribute('data-child-seat-field');
+          input.value = cls.childSeats[field];
+          if(field === 'boosterCount' && cls.childSeats.booster !== providerData.CHILD_SEAT_INCLUDED){
+            input.disabled = true;
+          }
+          input.addEventListener('change', function(){
+            if(field === 'boosterCount'){
+              cls.childSeats.boosterCount = +input.value || 0;
+            } else {
+              cls.childSeats[field] = input.value;
+            }
+            cls.childSeats = providerData.normalizeChildSeats(cls.childSeats);
+            renderProviders();
+            render();
+            scheduleSave();
+          });
+        });
+        tbody.appendChild(childSeatClassRow);
         var classActions = classActionsTemplate.content.firstElementChild.cloneNode(true);
         classActions.querySelector('.add-tariff-btn').addEventListener('click', function(){ addClassTariff(cls); });
         var removeClassButton = classActions.querySelector('.remove-class-btn');

@@ -14,6 +14,9 @@
   var BILLING_TIME_AND_DISTANCE = 'time-and-distance';
   var BILLING_DISTANCE_WITH_PACKAGES = 'distance-with-packages';
   var BILLING_TIME_WITH_INCLUDED_DISTANCE = 'time-with-included-distance';
+  var CHILD_SEAT_BRING_OWN = 'bring-own';
+  var CHILD_SEAT_CHECK = 'check';
+  var CHILD_SEAT_INCLUDED = 'included';
 
   /**
    * Checks whether a billing-model identifier is supported.
@@ -88,12 +91,52 @@
       jahreskm: 6000, vergleichsjahre: 6, kurzfahrten: 6, stundenprofahrt: 2, alltagsmodell: 'continuous',
       bringtageprowoche: 0, bringwochenprojahr: 40, bringkmprotag: 12,
       bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 100,
-      kindersitz: false,
+      childSeatInfantCount: 0, childSeatBoosterCount: 0, childSeatNeedsReview: false,
       tagesausfluege: 0, stundenproausflug: 8, kmproausflug: 120,
       mehrtagesfahrten: 3, tageprofahrt: 3, kmprofahrt: 250,
       urlaubsfahrten: 0, tageprourlaub: 7, kmprourlaub: 900,
       flex: 'teilweise', freefloatingFit: 'auto', parkplatz: false
     };
+  }
+
+  /**
+   * Checks whether a child-seat availability value is supported.
+   * @param {*} availability - Availability value stored for one vehicle class.
+   * @returns {boolean} True when the availability can be shown to users.
+   */
+  function isKnownChildSeatAvailability(availability){
+    return availability === CHILD_SEAT_BRING_OWN || availability === CHILD_SEAT_CHECK || availability === CHILD_SEAT_INCLUDED;
+  }
+
+  /**
+   * Normalizes child-seat details for one vehicle class.
+   * @param {*} childSeats - Source or persisted child-seat details.
+   * @returns {Object} Availability for infant seats and booster seats plus included count.
+   */
+  function normalizeChildSeats(childSeats){
+    var normalized = { infant: CHILD_SEAT_BRING_OWN, booster: CHILD_SEAT_BRING_OWN, boosterCount: 0 };
+    if(!isObject(childSeats)){
+      return normalized;
+    }
+    if(isKnownChildSeatAvailability(childSeats.infant)){
+      normalized.infant = childSeats.infant;
+    }
+    if(isKnownChildSeatAvailability(childSeats.booster)){
+      normalized.booster = childSeats.booster;
+    }
+    if(normalized.booster === CHILD_SEAT_INCLUDED && typeof childSeats.boosterCount === 'number' && isFinite(childSeats.boosterCount)){
+      normalized.boosterCount = Math.min(Math.max(Math.floor(childSeats.boosterCount), 1), 4);
+    }
+    return normalized;
+  }
+
+  /**
+   * Checks whether stored availability is the former generic fallback without provider-specific data.
+   * @param {Object} childSeats - Normalized vehicle-class seat availability.
+   * @returns {boolean} True when both seat types still use the old bring-your-own fallback.
+   */
+  function isGenericChildSeatFallback(childSeats){
+    return childSeats.infant === CHILD_SEAT_BRING_OWN && childSeats.booster === CHILD_SEAT_BRING_OWN && childSeats.boosterCount === 0;
   }
 
   /**
@@ -124,7 +167,7 @@
   function providerDefinitionToRuntime(definition){
     var provider = { id: definition.id, name: definition.name, operationMode: definition.operationMode, classes: [] };
     definition.classes.forEach(function(classDefinition){
-      var providerClass = { id: classDefinition.id, name: classDefinition.name, tariffs: [] };
+      var providerClass = { id: classDefinition.id, name: classDefinition.name, childSeats: normalizeChildSeats(classDefinition.childSeats), tariffs: [] };
       classDefinition.tariffs.forEach(function(tariffDefinition){
         providerClass.tariffs.push({
           id: tariffDefinition.id,
@@ -160,7 +203,7 @@
   }
 
   /**
-   * Adds billing models, weekly prices and source metadata missing from older tariff data.
+   * Adds billing models, weekly prices, source metadata and vehicle-class seat data missing from older tariff data.
    * @param {Array<Object>} providers - Provider collection to normalize in place.
    * @returns {Array<Object>} The normalized provider collection.
    */
@@ -175,6 +218,16 @@
         }
       }
       provider.classes.forEach(function(cls){
+        var defaultClass = null;
+        if(defaultProvider){
+          defaultClass = defaultProvider.classes.find(function(candidate){ return candidate.id === cls.id; });
+        }
+        var normalizedChildSeats = normalizeChildSeats(cls.childSeats);
+        if(defaultClass && isGenericChildSeatFallback(normalizedChildSeats) && !isGenericChildSeatFallback(defaultClass.childSeats)){
+          cls.childSeats = defaultClass.childSeats;
+        } else {
+          cls.childSeats = normalizedChildSeats;
+        }
         cls.tariffs.forEach(function(selectedTariff){
           var values = selectedTariff.v;
           var hadStoredMetadata = isObject(values.meta);
@@ -190,7 +243,6 @@
             values.meta = Object.assign({ sourceUrl: '', region: '', lastVerifiedAt: '' }, values.meta);
           }
           if(defaultProvider){
-            var defaultClass = defaultProvider.classes.find(function(candidate){ return candidate.id === cls.id; });
             var defaultTariff = null;
             if(defaultClass){
               defaultTariff = defaultClass.tariffs.find(function(candidate){ return candidate.id === selectedTariff.id; });
@@ -200,6 +252,15 @@
                 values.meta = Object.assign({}, defaultTariff.v.meta, values.meta);
               } else {
                 values.meta = Object.assign({}, defaultTariff.v.meta);
+              }
+              if(values.meta.sourceUrl === ''){
+                values.meta.sourceUrl = defaultTariff.v.meta.sourceUrl;
+              }
+              if(values.meta.region === ''){
+                values.meta.region = defaultTariff.v.meta.region;
+              }
+              if(values.meta.lastVerifiedAt === ''){
+                values.meta.lastVerifiedAt = defaultTariff.v.meta.lastVerifiedAt;
               }
             }
           }
@@ -213,7 +274,12 @@
     BILLING_TIME_AND_DISTANCE: BILLING_TIME_AND_DISTANCE,
     BILLING_DISTANCE_WITH_PACKAGES: BILLING_DISTANCE_WITH_PACKAGES,
     BILLING_TIME_WITH_INCLUDED_DISTANCE: BILLING_TIME_WITH_INCLUDED_DISTANCE,
+    CHILD_SEAT_BRING_OWN: CHILD_SEAT_BRING_OWN,
+    CHILD_SEAT_CHECK: CHILD_SEAT_CHECK,
+    CHILD_SEAT_INCLUDED: CHILD_SEAT_INCLUDED,
     isKnownBillingMode: isKnownBillingMode,
+    isKnownChildSeatAvailability: isKnownChildSeatAvailability,
+    normalizeChildSeats: normalizeChildSeats,
     defaultOwn: defaultOwn,
     normalizeOwn: normalizeOwn,
     defaultUsage: defaultUsage,
