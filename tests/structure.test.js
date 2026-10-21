@@ -16,6 +16,17 @@ function readProjectFile(relativePath){
   return fs.readFileSync(path.join(projectRoot, relativePath), 'utf8');
 }
 
+/**
+ * Reads all browser scripts in their declared loading order.
+ * @returns {string} Combined application source for rendering safety checks.
+ */
+function readApplicationScripts(){
+  const html = readProjectFile('index.html');
+  return Array.from(html.matchAll(/<script src="([^"]+)"><\/script>/g), function(match){
+    return readProjectFile(match[1]);
+  }).join('\n');
+}
+
 test('HTML loads separated assets in dependency order', function(){
   const html = readProjectFile('index.html');
   assert.match(html, /<link rel="stylesheet" href="styles\.css">/);
@@ -23,6 +34,13 @@ test('HTML loads separated assets in dependency order', function(){
   assert.ok(html.indexOf('src="providers.js"') < html.indexOf('src="calculator.js"'));
   assert.ok(html.indexOf('src="calculator.js"') < html.indexOf('src="recommendations.js"'));
   assert.ok(html.indexOf('src="recommendations.js"') < html.indexOf('src="app.js"'));
+  const controllerScripts = ['state-validation.js', 'state-storage.js', 'sharing.js', 'usage-scenarios.js', 'profiles-ui.js', 'location-ui.js', 'results-ui.js', 'tariff-editor.js', 'input-groups-ui.js'];
+  for(const script of controllerScripts){
+    assert.ok(html.indexOf('src="' + script + '"') > html.indexOf('src="recommendations.js"'));
+    assert.ok(html.indexOf('src="' + script + '"') < html.indexOf('src="app.js"'));
+  }
+  assert.ok(html.indexOf('src="state-validation.js"') < html.indexOf('src="state-storage.js"'));
+  assert.ok(html.indexOf('src="usage-scenarios.js"') < html.indexOf('src="profiles-ui.js"'));
   assert.doesNotMatch(html, /<style>/);
   assert.doesNotMatch(html, /<script>([\s\S]*?)<\/script>/);
   assert.doesNotMatch(html, /\sstyle="/);
@@ -30,7 +48,8 @@ test('HTML loads separated assets in dependency order', function(){
 
 test('repeated interfaces use templates and safe rendering', function(){
   const html = readProjectFile('index.html');
-  const application = readProjectFile('app.js');
+  const application = readApplicationScripts();
+  assert.match(html, /<template id="input-group-template">/);
   assert.match(html, /<template id="insight-card-template">/);
   assert.match(html, /<template id="provider-block-template">/);
   assert.match(html, /<template id="tariff-row-template">/);
@@ -92,7 +111,7 @@ test('tariffs contain billing and source metadata controls', function(){
 
 test('decision aids and result image action are present', function(){
   const html = readProjectFile('index.html');
-  const application = readProjectFile('app.js');
+  const application = readApplicationScripts();
   assert.match(html, /id="uncertainty-range"/);
   assert.match(html, /id="uncertainty-own"/);
   assert.match(html, /id="uncertainty-alternative"/);
@@ -112,7 +131,7 @@ test('provider choice precedes provider-specific location controls', function(){
 
 test('usage scenarios provide compact selection and reversible actions', function(){
   const html = readProjectFile('index.html');
-  const application = readProjectFile('app.js');
+  const application = readApplicationScripts();
   assert.match(html, /id="scenario-list"/);
   assert.match(html, /id="scenario-undo-btn"/);
   assert.match(html, /id="scenario-change-btn"/);

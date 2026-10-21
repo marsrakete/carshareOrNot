@@ -88,6 +88,15 @@ function loadApplication(){
   vm.runInContext(providersScript, context);
   vm.runInContext(calculatorScript, context);
   vm.runInContext(recommendationsScript, context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'state-validation.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'state-storage.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'sharing.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'usage-scenarios.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'profiles-ui.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'location-ui.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'results-ui.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'tariff-editor.js'), 'utf8'), context);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'input-groups-ui.js'), 'utf8'), context);
   vm.runInContext(exposedScript, context);
   Object.assign(context.__testApi, context.__validationApi);
   context.__testApi.alerts = [];
@@ -167,7 +176,7 @@ test('numeric overflow inputs are bounded before calculation', function(){
   });
   const result = app.calculate(app.state);
   assert.equal(Number.isFinite(result.own.total), true);
-  assert.equal(Number.isFinite(result.cambio.total), true);
+  assert.equal(Number.isFinite(result.alternative.total), true);
   assert.equal(app.isValidSharedState(app.state), false);
 });
 
@@ -234,7 +243,30 @@ test('default comparison remains stable', function(){
   const app = loadApplication();
   const result = app.calculate(app.state);
   assert.ok(Math.abs(result.own.total - 3754.6666666666665) < 0.001);
-  assert.ok(Math.abs(result.cambio.total - 1907.3) < 0.001);
+  assert.ok(Math.abs(result.alternative.total - 1907.3) < 0.001);
+});
+
+test('alternative result field is provider-neutral for every provider and recommendation mode', function(){
+  const app = loadApplication();
+  for(const provider of app.state.providers){
+    const vehicleClass = provider.classes[0];
+    app.state.selection = { providerId: provider.id, classId: vehicleClass.id, tariffId: vehicleClass.tariffs[0].id, recommendationMode: 'manual' };
+    const result = app.calculate(app.state);
+    assert.equal(result.providerName, provider.name);
+    assert.ok(Number.isFinite(result.alternative.total));
+    assert.equal(Object.hasOwn(result, 'cambio'), false);
+  }
+  app.state.selection.classId = 'klein';
+  for(const mode of ['recommend-single', 'recommend-mix']){
+    app.state.selection.recommendationMode = mode;
+    const result = app.calculateRecommendation(app.state);
+    assert.ok(result.alternative);
+    assert.equal(Object.hasOwn(result, 'cambio'), false);
+  }
+  app.state.providers = [];
+  const ownOnly = app.calculate(app.state);
+  assert.equal(ownOnly.alternative, null);
+  assert.equal(Object.hasOwn(ownOnly, 'cambio'), false);
 });
 
 test('additional owned-car miscellaneous cost starts at zero and affects fixed costs', function(){
@@ -244,6 +276,43 @@ test('additional owned-car miscellaneous cost starts at zero and affects fixed c
   const changed = app.calculate(app.state);
   assert.equal(baseline.own.fix + 125, changed.own.fix);
   assert.equal(baseline.own.total + 125, changed.own.total);
+});
+
+test('owned-car profile costs reach calculation and sharing without altering usage', async function(){
+  const app = loadApplication();
+  const profileData = require('../own-car-profiles.js');
+  const baseline = app.calculate(app.state);
+  const usage = JSON.stringify(app.state.usage);
+  app.state.own = profileData.applyProfile(app.state.own, 'suv');
+  const result = app.calculate(app.state);
+  assert.equal(result.own.fix - baseline.own.fix, 1391);
+  assert.equal(JSON.stringify(app.state.usage), usage);
+  const payload = await app.encodeSharePayload(app.createCompactShareState());
+  const wrapper = await app.decodeSharePayload(payload);
+  const sharedState = app.expandCompactShareState(wrapper.state);
+  assert.equal(app.isValidSharedState(sharedState), true);
+  assert.equal(sharedState.own.wartung, 1488);
+  assert.equal(sharedState.own.versicherung, 1366);
+  assert.equal(sharedState.own.sonstiges, 237);
+});
+
+test('both parking costs count independently of the guaranteed-space switch', function(){
+  const app = loadApplication();
+  app.state.own.stellplatz = 0;
+  app.state.own.parkausweis = 0;
+  const baseline = app.calculate(app.state).own;
+  for(const guaranteedSpace of [false, true]){
+    app.state.usage.parkplatz = guaranteedSpace;
+    for(const [rent, permit, annualCost] of [[120, 60, 1500], [120, 0, 1440], [0, 60, 60], [0, 0, 0]]){
+      app.state.own.stellplatz = rent;
+      app.state.own.parkausweis = permit;
+      const original = JSON.stringify(app.state);
+      const result = app.calculate(app.state);
+      assert.equal(result.own.fix, baseline.fix + annualCost);
+      assert.equal(result.own.total, baseline.total + annualCost);
+      assert.equal(JSON.stringify(app.state), original);
+    }
+  }
 });
 
 test('negative owned-car values cannot produce income in either parking mode', function(){
@@ -283,7 +352,7 @@ test('distance tiers are applied per everyday booking', function(){
     mehrtagesfahrten: 0
   });
   const result = app.calculate(app.state);
-  assert.ok(Math.abs(result.cambio.km - 468) < 0.001);
+  assert.ok(Math.abs(result.alternative.km - 468) < 0.001);
 });
 
 test('multi-day mileage cannot exceed annual mileage', function(){
@@ -294,8 +363,8 @@ test('multi-day mileage cannot exceed annual mileage', function(){
     kmprofahrt: 250
   });
   const result = app.calculate(app.state);
-  assert.equal(result.cambio.multiKm, 500);
-  assert.equal(result.cambio.mileageAdjusted, true);
+  assert.equal(result.alternative.multiKm, 500);
+  assert.equal(result.alternative.mileageAdjusted, true);
 });
 
 test('day trips use hourly cost caps and per-booking distance tiers', function(){
@@ -310,7 +379,7 @@ test('day trips use hourly cost caps and per-booking distance tiers', function()
     urlaubsfahrten: 0
   });
   const result = app.calculate(app.state);
-  assert.ok(Math.abs(result.cambio.dayTripCost - 39.8) < 0.001);
+  assert.ok(Math.abs(result.alternative.dayTripCost - 39.8) < 0.001);
 });
 
 test('bring and pickup trips account for recurring bookings and combined journeys', function(){
@@ -329,9 +398,9 @@ test('bring and pickup trips account for recurring bookings and combined journey
     urlaubsfahrten: 0
   });
   const result = app.calculate(app.state);
-  assert.equal(result.cambio.schoolRunTrips, 200);
-  assert.equal(result.cambio.schoolRunKm, 1200);
-  assert.ok(Math.abs(result.cambio.schoolRunCost - 531) < 0.001);
+  assert.equal(result.alternative.schoolRunTrips, 200);
+  assert.equal(result.alternative.schoolRunKm, 1200);
+  assert.ok(Math.abs(result.alternative.schoolRunCost - 531) < 0.001);
 });
 
 test('vacation trips use weekly and daily packages', function(){
@@ -346,7 +415,7 @@ test('vacation trips use weekly and daily packages', function(){
     kmprourlaub: 900
   });
   const result = app.calculate(app.state);
-  assert.ok(Math.abs(result.cambio.vacationCost - 298) < 0.001);
+  assert.ok(Math.abs(result.alternative.vacationCost - 298) < 0.001);
 });
 
 test('detailed trip mileage is proportionally capped at annual mileage', function(){
@@ -362,26 +431,26 @@ test('detailed trip mileage is proportionally capped at annual mileage', functio
     kmprourlaub: 900
   });
   const result = app.calculate(app.state);
-  const categories = result.cambio.tripCategories;
+  const categories = result.alternative.tripCategories;
   const detailedKm = categories.schoolRuns.km + categories.dayTrips.km + categories.multiDay.km + categories.vacations.km;
   assert.ok(Math.abs(detailedKm - 1000) < 0.001);
-  assert.equal(result.cambio.mileageAdjusted, true);
+  assert.equal(result.alternative.mileageAdjusted, true);
 });
 
 test('billing model can include distance in the time price', function(){
   const app = loadApplication();
   app.state.selection = { providerId: 'free2move', classId: 'klein', tariffId: 'zeit' };
   const result = app.calculate(app.state);
-  assert.equal(result.cambio.km, 0);
-  assert.equal(result.cambio.billingMode, 'time-with-included-distance');
+  assert.equal(result.alternative.km, 0);
+  assert.equal(result.alternative.billingMode, 'time-with-included-distance');
 });
 
 test('distance billing skips everyday time but keeps multi-day packages', function(){
   const app = loadApplication();
   app.state.selection = { providerId: 'miles', classId: 'klein', tariffId: 'km' };
   const result = app.calculate(app.state);
-  assert.equal(result.cambio.billingMode, 'distance-with-packages');
-  assert.equal(result.cambio.fuel, 405);
+  assert.equal(result.alternative.billingMode, 'distance-with-packages');
+  assert.equal(result.alternative.fuel, 405);
 });
 
 test('every built-in tariff carries source metadata', function(){
@@ -419,7 +488,7 @@ test('registration fee uses the independent comparison horizon', function(){
   const app = loadApplication();
   app.state.usage.vergleichsjahre = 3;
   const result = app.calculate(app.state);
-  assert.ok(Math.abs(result.cambio.fix - 130) < 0.001);
+  assert.ok(Math.abs(result.alternative.fix - 130) < 0.001);
 });
 
 test('share payload round-trips every setting and rejects incomplete state', async function(){
@@ -491,8 +560,8 @@ test('split return creates two everyday bookings without doubling total usage ti
   const app = loadApplication();
   app.state.usage.alltagsmodell = 'split-return';
   const result = app.calculate(app.state);
-  assert.equal(result.cambio.tripCategories.everyday.trips, app.state.usage.kurzfahrten * 24);
-  assert.ok(Math.abs(result.cambio.tripCategories.everyday.timeCost - 244.8) < 0.001);
+  assert.equal(result.alternative.tripCategories.everyday.trips, app.state.usage.kurzfahrten * 24);
+  assert.ok(Math.abs(result.alternative.tripCategories.everyday.timeCost - 244.8) < 0.001);
 });
 
 test('single-provider recommendation ranks the cheapest matching tariffs', function(){
@@ -503,7 +572,7 @@ test('single-provider recommendation ranks the cheapest matching tariffs', funct
   assert.equal(result.recommendation.rows.length, 3);
   assert.ok(result.recommendation.rows[0].cost <= result.recommendation.rows[1].cost);
   assert.ok(result.recommendation.rows[1].cost <= result.recommendation.rows[2].cost);
-  assert.equal(result.cambio.total, result.recommendation.rows[0].cost);
+  assert.equal(result.alternative.total, result.recommendation.rows[0].cost);
 });
 
 test('single-provider recommendation uses its result provider for location editing', function(){
@@ -530,10 +599,10 @@ test('mobility mix never costs more than its best single-provider option', funct
   const mixResult = app.calculateRecommendation(app.state);
   assert.equal(mixResult.recommendation.mode, 'recommend-mix');
   assert.ok(mixResult.recommendation.rows.length > 0);
-  assert.ok(mixResult.cambio.total <= singleResult.cambio.total + 0.001);
-  assert.ok(Math.abs(mixResult.cambio.total - mixResult.cambio.fix - mixResult.cambio.fuel - mixResult.cambio.km) < 0.001);
+  assert.ok(mixResult.alternative.total <= singleResult.alternative.total + 0.001);
+  assert.ok(Math.abs(mixResult.alternative.total - mixResult.alternative.fix - mixResult.alternative.fuel - mixResult.alternative.km) < 0.001);
   const displayedTotal = mixResult.recommendation.rows.reduce(function(sum, row){ return sum + row.cost; }, 0);
-  assert.ok(Math.abs(displayedTotal - mixResult.cambio.total) < 0.001);
+  assert.ok(Math.abs(displayedTotal - mixResult.alternative.total) < 0.001);
 });
 
 test('mobility mix assigns different trip types and counts each selected tariff fee once', function(){
@@ -572,8 +641,8 @@ test('mobility mix assigns different trip types and counts each selected tariff 
   const result = app.calculateRecommendation(app.state);
   const assignments = result.recommendation.rows.map(function(row){ return row.providerId; });
   assert.equal(JSON.stringify(assignments), JSON.stringify(['short', 'supplement-rental']));
-  assert.ok(Math.abs(result.cambio.fix - 10) < 0.001);
-  assert.ok(Math.abs(result.cambio.total - 540.4) < 0.001);
+  assert.ok(Math.abs(result.alternative.fix - 10) < 0.001);
+  assert.ok(Math.abs(result.alternative.total - 540.4) < 0.001);
 });
 
 test('recommendations exclude a provider with confirmed zero stations', function(){
@@ -630,7 +699,7 @@ test('automatic family profile downranks free-floating without changing tariff c
   assert.equal(overriddenResult.recommendation.primaryProviderId, 'free2move');
   app.state.selection = { providerId: 'free2move', classId: 'klein', tariffId: 'zeit', recommendationMode: 'manual' };
   const directTariffResult = app.calculate(app.state);
-  assert.ok(Math.abs(overriddenResult.cambio.total - directTariffResult.cambio.total) < 0.001);
+  assert.ok(Math.abs(overriddenResult.alternative.total - directTariffResult.alternative.total) < 0.001);
 });
 
 test('legacy selections default to manual mode before share validation', function(){
@@ -663,7 +732,7 @@ test('Grüne Flotte Bonn participates in calculations, recommendations and provi
   assert.ok(provider);
   app.state.selection = { providerId: provider.id, classId: 'klein', tariffId: 'xs', recommendationMode: 'manual' };
   const result = app.calculate(app.state);
-  assert.ok(Number.isFinite(result.cambio.total) && result.cambio.total > 0);
+  assert.ok(Number.isFinite(result.alternative.total) && result.alternative.total > 0);
   const exported = app.buildProviderExport(provider);
   assert.equal(exported.provider.meta.lastVerifiedAt, '2026-10-21');
   assert.equal(exported.provider.classes[0].tariffs[0].kmBis100, 0.35);
@@ -705,7 +774,7 @@ test('unsuitable free-floating is excluded from single and mix recommendations b
   app.state.selection.recommendationMode = 'manual';
   app.state.selection.providerId = freeProvider.id;
   app.state.selection.tariffId = 'zeit';
-  assert.equal(app.calculate(app.state).cambio.total, 0);
+  assert.equal(app.calculate(app.state).alternative.total, 0);
 });
 
 /**
@@ -726,4 +795,24 @@ test('supplementary free-floating is allowed only in mix recommendations', funct
   app.state.usage.freefloatingFit = 'suitable';
   app.state.selection.recommendationMode = 'recommend-single';
   assert.equal(app.calculateRecommendation(app.state).recommendation.primaryProviderId, freeProvider.id);
+});
+
+
+/**
+ * Checks location editing follows mix providers instead of a stale manual selection.
+ * @returns {void}
+ */
+test('mix location editing does not fall back to an excluded free-floating provider', function(){
+  const app = loadApplication();
+  app.state.selection.providerId = 'free2move';
+  app.state.selection.recommendationMode = 'recommend-mix';
+  app.state.usage.freefloatingFit = 'unsuitable';
+  const result = app.calculateRecommendation(app.state);
+  const provider = app.getLocationProvider(result);
+  assert.ok(provider);
+  assert.equal(provider.operationMode, 'station-based');
+  app.state.providers = app.state.providers.filter(function(candidate){ return candidate.operationMode === 'free-floating'; });
+  assert.equal(app.getLocationProvider({ recommendation: { primaryProviderId: '' } }), null);
+  app.state.selection.recommendationMode = 'manual';
+  assert.equal(app.getLocationProvider({}).id, 'free2move');
 });

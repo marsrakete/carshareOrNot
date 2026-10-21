@@ -247,16 +247,10 @@
    */
   function buildCandidates(state, classId){
     var candidates = [];
-    var fit = resolveFreeFloatingFit(state);
     for(var providerIndex = 0; providerIndex < state.providers.length; providerIndex += 1){
       var provider = state.providers[providerIndex];
-      if(provider.operationMode === 'free-floating'){
-        if(fit.effective === FREE_FLOATING_UNSUITABLE){
-          continue;
-        }
-        if(fit.effective === FREE_FLOATING_SUPPLEMENT && state.selection.recommendationMode !== MODE_MIX){
-          continue;
-        }
+      if(!isProviderAllowedForRecommendation(state, provider)){
+        continue;
       }
       if(isProviderUnavailable(state, provider.id)){
         continue;
@@ -274,7 +268,7 @@
       for(var tariffIndex = 0; tariffIndex < selectedClass.tariffs.length; tariffIndex += 1){
         var selectedTariff = selectedClass.tariffs[tariffIndex];
         var result = calculateCandidate(state, provider.id, selectedClass.id, selectedTariff.id);
-        var ranking = calculateRankingValue(state, provider, result.cambio.total);
+        var ranking = calculateRankingValue(state, provider, result.alternative.total);
         candidates.push({
           id: provider.id + '::' + selectedClass.id + '::' + selectedTariff.id,
           providerId: provider.id,
@@ -305,7 +299,7 @@
     if(left.rankingScore !== right.rankingScore){
       return left.rankingScore - right.rankingScore;
     }
-    return left.result.cambio.total - right.result.cambio.total;
+    return left.result.alternative.total - right.result.alternative.total;
   }
 
   /**
@@ -328,7 +322,7 @@
         detail: candidate.fitNote,
         childSeatNote: candidate.childSeatNote,
         freshnessNote: candidate.freshnessNote,
-        cost: candidate.result.cambio.total,
+        cost: candidate.result.alternative.total,
         providerId: candidate.providerId,
         tariffId: candidate.tariffId
       });
@@ -390,10 +384,10 @@
     var fixedCost = portfolio.fixedCost;
     if(!existingTariff){
       selectedByProvider[candidate.providerId] = candidate.id;
-      fixedCost += candidate.result.cambio.fix;
+      fixedCost += candidate.result.alternative.fix;
     }
 
-    var category = candidate.result.cambio.tripCategories[categoryDefinition.key];
+    var category = candidate.result.alternative.tripCategories[categoryDefinition.key];
     var ranking = calculateRankingValue(portfolio.state, candidate, category.total);
     var assignments = portfolio.assignments.slice();
     assignments.push({ definition: categoryDefinition, candidate: candidate, category: category });
@@ -427,7 +421,7 @@
    * @returns {Array<Object>} Supplementary candidates used only by the mobility mix.
    */
   function buildSupplementCandidates(state, referenceResult){
-    var source = referenceResult.cambio.tripCategories;
+    var source = referenceResult.alternative.tripCategories;
     var zero = { trips: 0, km: 0, timeCost: 0, kmCost: 0, total: 0 };
     var taxiCategories = {
       everyday: createSupplementCategory(source.everyday, 4, 2.2),
@@ -449,17 +443,17 @@
       {
         id: 'supplement::taxi', providerId: 'supplement-taxi', providerName: 'Taxi / Ridehailing', tariffId: 'estimate', tariffName: '4 € Start + 2,20 €/km', operationMode: 'supplement',
         rankingScore: 0, fitNote: 'Rechenannahme, lokal prüfen', freshnessNote: 'Kein Live-Preis', allowedCategories: ['everyday', 'schoolRuns'], requiresLocation: false,
-        result: { cambio: { fix: 0, tripCategories: taxiCategories } }
+        result: { alternative: { fix: 0, tripCategories: taxiCategories } }
       },
       {
         id: 'supplement::rental', providerId: 'supplement-rental', providerName: 'Mietwagen', tariffId: 'estimate', tariffName: '55 €/Tag + 0,18 €/km', operationMode: 'supplement',
         rankingScore: 0, fitNote: 'Rechenannahme, lokal prüfen', freshnessNote: 'Kein Live-Preis', allowedCategories: ['dayTrips', 'multiDay', 'vacations'], requiresLocation: false,
-        result: { cambio: { fix: 0, tripCategories: rentalCategories } }
+        result: { alternative: { fix: 0, tripCategories: rentalCategories } }
       },
       {
-        id: 'supplement::transit', providerId: 'supplement-transit', providerName: 'ÖPNV', tariffId: 'estimate', tariffName: '58 €/Monat', operationMode: 'supplement',
+        id: 'supplement::transit', providerId: 'supplement-transit', providerName: 'ÖPNV', tariffId: 'estimate', tariffName: '63 €/Monat', operationMode: 'supplement',
         rankingScore: 0, fitNote: 'Pauschale Rechenannahme', freshnessNote: 'Kein Live-Preis', allowedCategories: ['everyday', 'schoolRuns'], requiresLocation: false,
-        result: { cambio: { fix: 58 * 12, tripCategories: transitCategories } }
+        result: { alternative: { fix: 63 * 12, tripCategories: transitCategories } }
       }
     ];
   }
@@ -518,7 +512,7 @@
       }
       var rowCost = assignment.category.total;
       if(displayedFixedProviderIds.indexOf(assignment.candidate.providerId) === -1){
-        rowCost += assignment.candidate.result.cambio.fix;
+        rowCost += assignment.candidate.result.alternative.fix;
         displayedFixedProviderIds.push(assignment.candidate.providerId);
       }
       rows.push({
@@ -559,14 +553,14 @@
     return {
       own: referenceResult.own,
       providerName: 'Mobilitätsmix',
-      cambio: {
+      alternative: {
         fix: portfolio.fixedCost,
         fuel: timeCost,
         km: kmCost,
         total: total,
         perKm: perKm,
         tariffName: 'Mehrere Tarife',
-        className: referenceResult.cambio.className,
+        className: referenceResult.alternative.className,
         multiTrips: tripCategories.multiDay.trips,
         multiKm: tripCategories.multiDay.km,
         multiCost: tripCategories.multiDay.total,
@@ -578,8 +572,8 @@
         vacationKm: tripCategories.vacations.km,
         vacationCost: tripCategories.vacations.total,
         tripCategories: tripCategories,
-        mileageAdjusted: referenceResult.cambio.mileageAdjusted,
-        implicitShortTrip: referenceResult.cambio.implicitShortTrip,
+        mileageAdjusted: referenceResult.alternative.mileageAdjusted,
+        implicitShortTrip: referenceResult.alternative.implicitShortTrip,
         billingMode: 'mixed'
       },
       recommendation: {
@@ -610,7 +604,7 @@
     var activeDefinitions = [];
     for(var index = 0; index < CATEGORY_DEFINITIONS.length; index += 1){
       var definition = CATEGORY_DEFINITIONS[index];
-      var referenceCategory = referenceResult.cambio.tripCategories[definition.key];
+      var referenceCategory = referenceResult.alternative.tripCategories[definition.key];
       if(isActiveCategory(referenceCategory)){
         activeDefinitions.push(definition);
       }
@@ -655,6 +649,26 @@
     return null;
   }
 
+  /**
+   * Checks provider eligibility for the active recommendation mode and daily-life fit.
+   * @param {Object} state - Current application state.
+   * @param {Object} provider - Provider whose eligibility is checked.
+   * @returns {boolean} True when this provider can participate in recommendations.
+   */
+  function isProviderAllowedForRecommendation(state, provider){
+    if(provider.operationMode !== 'free-floating'){
+      return true;
+    }
+    var fit = resolveFreeFloatingFit(state);
+    if(fit.effective === FREE_FLOATING_UNSUITABLE){
+      return false;
+    }
+    if(fit.effective === FREE_FLOATING_SUPPLEMENT && state.selection.recommendationMode !== MODE_MIX){
+      return false;
+    }
+    return true;
+  }
+
   global.CarshareRecommendations = {
     MODE_MANUAL: MODE_MANUAL,
     MODE_SINGLE: MODE_SINGLE,
@@ -667,6 +681,7 @@
     isKnownFreeFloatingFit: isKnownFreeFloatingFit,
     describeChildSeatAvailability: describeChildSeatAvailability,
     resolveFreeFloatingFit: resolveFreeFloatingFit,
+    isProviderAllowedForRecommendation: isProviderAllowedForRecommendation,
     calculateRecommendation: calculateRecommendation
   };
 })(window);

@@ -78,12 +78,8 @@
     var jahreskm = Math.max(u.jahreskm, 0);
 
     var depreciation = Math.max(o.kaufpreis - o.restwert, 0) / years;
-    var stellplatzAnnual = 0;
+    var stellplatzAnnual = o.stellplatz * 12;
     var parkausweisAnnual = o.parkausweis;
-    if(u.parkplatz){
-      stellplatzAnnual = o.stellplatz * 12;
-      parkausweisAnnual = 0;
-    }
     var extraOwnCost = Math.max(o.sonstigesExtra || 0, 0);
     var fixOwn = depreciation + o.wartung + o.versicherung + o.sonstiges + extraOwnCost + stellplatzAnnual + parkausweisAnnual;
     var fuelOwn = (jahreskm / 100) * o.verbrauch * o.kraftstoffpreis;
@@ -112,7 +108,7 @@
 
     var result = {
       own: { fix: fixOwn, fuel: fuelOwn, km: kmCostOwn, total: totalOwn, perKm: ownCostPerKm },
-      cambio: null, providerName: providerName
+      alternative: null, providerName: providerName
     };
 
     if(selectedTariff){
@@ -274,17 +270,17 @@
       var baseFeeAnnual = v.grundgebuehr * 12;
       var anmeldeAmortized = v.anmeldegebuehr / comparisonYears;
 
-      var fixCambio = baseFeeAnnual + anmeldeAmortized;
-      var timeCambio = shortTimeCostTotal + detailedTimeCostTotal;
-      var kmCambio = shortKmCostTotal + detailedKmCostTotal;
-      var totalCambio = fixCambio + timeCambio + kmCambio;
+      var alternativeFixedCost = baseFeeAnnual + anmeldeAmortized;
+      var alternativeTimeCost = shortTimeCostTotal + detailedTimeCostTotal;
+      var alternativeDistanceCost = shortKmCostTotal + detailedKmCostTotal;
+      var alternativeTotalCost = alternativeFixedCost + alternativeTimeCost + alternativeDistanceCost;
       var providerCostPerKm = 0;
       if(jahreskm > 0){
-        providerCostPerKm = totalCambio / jahreskm;
+        providerCostPerKm = alternativeTotalCost / jahreskm;
       }
 
-      result.cambio = {
-        fix: fixCambio, fuel: timeCambio, km: kmCambio, total: totalCambio,
+      result.alternative = {
+        fix: alternativeFixedCost, fuel: alternativeTimeCost, km: alternativeDistanceCost, total: alternativeTotalCost,
         perKm: providerCostPerKm,
         tariffName: selectedTariff.name, className: cls.name,
         multiTrips: categoryCosts.multiDay.trips, multiKm: categoryCosts.multiDay.km,

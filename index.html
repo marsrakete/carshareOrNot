@@ -46,47 +46,71 @@
     <div class="layout">
       <section class="panel">
 
-        <div class="group">
+        <div class="group input-section input-section--own">
           <h2 class="section-heading"><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14l1.8-5h12.4l1.8 5M3 14h18v5h-2v-2H5v2H3v-5Zm4 0h.01M17 14h.01"/></svg><span>Das eigene Auto</span></h2>
           <p class="hint">Gebrauchtwagen-Kauf und laufende Kosten</p>
-          <details class="scenario-picker own-profile-picker">
-            <summary>Werkstattkosten mit einem Autoprofil schätzen</summary>
-            <p class="hint">Die Vorlage übernimmt nur Wartung, Reparaturen und Reifen. Kaufpreis und alle weiteren Kosten bitte individuell eintragen.</p>
-            <p class="hint">Grobe Orientierung aus jeweils zwei ADAC-Modellberechnungen für Varianten um 2020/2021, abgelesen am 21.10.2026: 15.000 km/Jahr, fünf Jahre Haltedauer. Kein repräsentativer Klassendurchschnitt und keine Garantie für ein bestimmtes Fahrzeugalter.</p>
-            <div class="scenario-list is-expanded" id="own-profile-list"></div>
-          </details>
-          <details class="own-cost-guide">
-            <summary>So ermittelst du deine tatsächlichen Autokosten</summary>
-            <ol>
-              <li>Erfasse Wartung, Reparaturen und Reifen über mehrere Jahre und teile die Summe durch die Anzahl der Jahre. Alternativ verteile planbare Arbeiten nach ihrem Intervall: 600 € alle zwei Jahre entsprechen 300 €/Jahr.</li>
-              <li>Berücksichtige zusätzlich Verschleiß und eine Reparaturrücklage. Ein einzelner Inspektionspreis deckt nicht sämtliche Werkstattkosten ab. Alter, Kilometerstand, Motorisierung und Werkstatt beeinflussen die Kosten.</li>
-              <li>Die Profilwerte enthalten Reifen bereits. Trage unter „Steuer, TÜV u. Ä.“ keine Reifen ein. Falls dort bisher Reifen enthalten waren, ziehe deren Jahresanteil selbst ab; die App kennt diesen Anteil nicht.</li>
-              <li>Vergleiche bei Bedarf dein konkretes Modell im <a href="https://www.adac.de/rund-ums-fahrzeug/autokatalog/" target="_blank" rel="noopener noreferrer">ADAC-Autokatalog</a>. Achte auf Monats- und Jahreswerte sowie die zugrunde liegende Fahrleistung. Die Profile passen sich nicht automatisch an deine Kilometer an.</li>
-              <li>Trage Kaufpreis, erwarteten Wiederverkaufswert, Versicherung, Steuer, TÜV und gegebenenfalls Parkkosten anhand deiner eigenen Unterlagen ein. Überschreibe die Richtwerte durch deine tatsächlichen Kosten.</li>
-            </ol>
-          </details>
-          <p class="hint" id="own-profile-status" role="status" aria-live="polite"></p>
-          <button class="scenario-more-btn" id="own-reset-btn" type="button">Autodaten zurücksetzen</button>
 
-          <div class="field-row"><label for="own_kaufpreis">Kaufpreis</label><input type="number" id="own_kaufpreis" min="0" step="100"></div>
-          <div class="field-row"><label for="own_haltedauer">Haltedauer <span class="unit">Jahre</span></label><input type="number" id="own_haltedauer" min="1" step="1"></div>
-          <div class="field-row"><label for="own_restwert">Wiederverkaufswert danach</label><input type="number" id="own_restwert" min="0" step="100"></div>
-          <div class="field-row"><label for="own_wartung">Wartung, Reparaturen &amp; Reifen <span class="unit">€/Jahr</span></label><input type="number" id="own_wartung" min="0" step="1"></div>
-          <div class="field-row"><label for="own_versicherung">Versicherung <span class="unit">€/Jahr</span></label><input type="number" id="own_versicherung" min="0" step="10"></div>
-          <div class="field-row"><label for="own_sonstiges">Steuer, TÜV u. Ä. (ohne Reifen) <span class="unit">€/Jahr</span></label><input type="number" id="own_sonstiges" min="0" step="10"></div>
-          <div class="field-row"><label for="own_sonstiges_extra">Sonstiges <span class="unit">€/Jahr</span></label><input type="number" id="own_sonstiges_extra" min="0" step="10" value="0"></div>
-          <div class="field-row"><label for="own_verbrauch">Verbrauch <span class="unit">l/100 km</span></label><input type="number" id="own_verbrauch" min="0" step="0.1"></div>
-          <div class="field-row"><label for="own_kraftstoffpreis">Kraftstoffpreis <span class="unit">€/l</span></label><input type="number" id="own_kraftstoffpreis" min="0" step="0.01"></div>
-          <div class="field-row"><label for="own_stellplatz">Stellplatzmiete, falls benötigt <span class="unit">€/Monat</span></label><input type="number" id="own_stellplatz" min="0" step="5"></div>
-          <div class="field-row"><label for="own_parkausweis">Anwohnerparkausweis o. Ä., falls kein Platz garantiert <span class="unit">€/Jahr</span></label><input type="number" id="own_parkausweis" min="0" step="5"></div>
-          <div class="toggle-row">
-            <span id="parking-label">Ich brauche für das eigene Auto einen garantierten, gemieteten Parkplatz</span>
-            <label class="switch"><input type="checkbox" id="use_parkplatz" aria-labelledby="parking-label"><span class="slider"></span></label>
+          <div class="input-group-slot" data-input-group="own-purchase" data-group-title="Anschaffung &amp; Wertverlust" data-group-icon="scenario-icon-commute" data-group-open>
+            <template class="input-group-summary-template"><span data-summary-fields="own_kaufpreis" data-summary-format="currency"></span> Kaufpreis · <span data-summary-fields="own_haltedauer"></span> Jahre Haltedauer</template>
+            <div class="input-fields-grid">
+              <div class="field-row"><label for="own_kaufpreis">Kaufpreis</label><input type="number" id="own_kaufpreis" min="0" step="100"></div>
+              <div class="field-row"><label for="own_haltedauer">Haltedauer <span class="unit">Jahre</span></label><input type="number" id="own_haltedauer" min="1" step="1"></div>
+              <div class="field-row"><label for="own_restwert">Wiederverkaufswert danach</label><input type="number" id="own_restwert" min="0" step="100"></div>
+            </div>
           </div>
-          <p class="hint parking-hint" id="stellplatz-hint"></p>
+
+          <div class="input-group-slot" data-input-group="own-running" data-group-title="Laufende Kosten" data-group-icon="scenario-icon-care">
+            <template class="input-group-summary-template"><span data-summary-fields="own_wartung own_versicherung own_sonstiges own_sonstiges_extra" data-summary-format="currency"></span> pro Jahr</template>
+            <div class="input-fields-grid">
+              <div class="field-row"><label for="own_wartung">Wartung, Reparaturen &amp; Reifen <span class="unit">€/Jahr</span></label><input type="number" id="own_wartung" min="0" step="1"></div>
+              <div class="field-row"><label for="own_versicherung">Versicherung <span class="unit">€/Jahr</span></label><input type="number" id="own_versicherung" min="0" step="1"></div>
+              <div class="field-row"><label for="own_sonstiges">Steuer, TÜV u. Ä. (ohne Reifen) <span class="unit">€/Jahr</span></label><input type="number" id="own_sonstiges" min="0" step="1"></div>
+              <div class="field-row"><label for="own_sonstiges_extra">Sonstiges <span class="unit">€/Jahr</span></label><input type="number" id="own_sonstiges_extra" min="0" step="10" value="0"></div>
+            </div>
+            <details class="scenario-picker own-profile-picker">
+              <summary>Laufende Kosten mit einem Autoprofil schätzen</summary>
+              <p class="hint">Die Vorlage ersetzt Wartung, Reparaturen und Reifen, Versicherung sowie Steuer inklusive HU/AU. Kaufpreis, Restwert, Verbrauch, Parkkosten und dein freier Posten „Sonstiges“ bleiben erhalten.</p>
+              <p class="hint">Grobe Orientierung aus jeweils zwei ADAC-Modellberechnungen für Varianten um 2020/2021, abgelesen am 21.10.2026: 15.000 km/Jahr, fünf Jahre Haltedauer. Kein repräsentativer Klassendurchschnitt und keine Garantie für ein bestimmtes Fahrzeugalter.</p>
+              <p class="hint">Versicherung: eigene Beispielrechnung für Haftpflicht plus Vollkasko mit jeweils 50 % Beitragssatz, 500 € Selbstbeteiligung in der Vollkasko und 150 € in der enthaltenen Teilkasko. Das ist keine individuelle Versicherungsprämie. Steuer/HU enthält den Modellmittelwert der Steuer plus 82 €/Jahr als regionales HU/AU-Beispiel (164 € alle zwei Jahre).</p>
+              <div class="scenario-list is-expanded" id="own-profile-list"></div>
+            </details>
+            <details class="own-cost-guide">
+              <summary>So ermittelst du deine tatsächlichen Autokosten</summary>
+              <ol>
+                <li>Erfasse Wartung, Reparaturen und Reifen über mehrere Jahre und teile die Summe durch die Anzahl der Jahre. Alternativ verteile planbare Arbeiten nach ihrem Intervall: 600 € alle zwei Jahre entsprechen 300 €/Jahr.</li>
+                <li>Berücksichtige zusätzlich Verschleiß und eine Reparaturrücklage. Ein einzelner Inspektionspreis deckt nicht sämtliche Werkstattkosten ab. Alter, Kilometerstand, Motorisierung und Werkstatt beeinflussen die Kosten.</li>
+                <li>Die Werkstattwerte enthalten Reifen bereits. Die Profilwahl ersetzt auch den bisherigen Betrag unter „Steuer, TÜV u. Ä.“ durch Steuer und HU/AU. Zusätzliche Kosten kannst du getrennt unter „Sonstiges“ eintragen; dort bleibt ein vorhandener Betrag erhalten.</li>
+                <li>Vergleiche bei Bedarf dein konkretes Modell im <a href="https://www.adac.de/rund-ums-fahrzeug/autokatalog/" target="_blank" rel="noopener noreferrer">ADAC-Autokatalog</a>. Achte auf Monats- und Jahreswerte sowie die zugrunde liegende Fahrleistung. Die Profile passen sich nicht automatisch an deine Kilometer an.</li>
+                <li>Trage Kaufpreis, erwarteten Wiederverkaufswert, Versicherung, Steuer, TÜV und gegebenenfalls Parkkosten anhand deiner eigenen Unterlagen ein. Überschreibe die Richtwerte durch deine tatsächlichen Kosten.</li>
+              </ol>
+            </details>
+            <p class="hint" id="own-profile-status" role="status" aria-live="polite"></p>
+          </div>
+
+          <div class="input-group-slot" data-input-group="own-fuel" data-group-title="Kraftstoff" data-group-icon="scenario-icon-route">
+            <template class="input-group-summary-template"><span data-summary-fields="own_verbrauch" data-summary-format="decimal"></span> l/100 km · <span data-summary-fields="own_kraftstoffpreis" data-summary-format="currency-cents"></span>/l</template>
+            <div class="input-fields-grid">
+              <div class="field-row"><label for="own_verbrauch">Verbrauch <span class="unit">l/100 km</span></label><input type="number" id="own_verbrauch" min="0" step="0.1"></div>
+              <div class="field-row"><label for="own_kraftstoffpreis">Kraftstoffpreis <span class="unit">€/l</span></label><input type="number" id="own_kraftstoffpreis" min="0" step="0.01"></div>
+            </div>
+          </div>
+
+          <div class="input-group-slot" data-input-group="own-parking" data-group-title="Parken &amp; Stellplatz" data-group-icon="scenario-icon-home">
+            <template class="input-group-summary-template">Stellplatz: <span data-summary-fields="own_stellplatz" data-summary-format="currency"></span>/Monat · Parkausweis: <span data-summary-fields="own_parkausweis" data-summary-format="currency"></span>/Jahr · <span data-summary-checked="use_parkplatz">Stellplatz garantiert</span><span data-summary-unchecked="use_parkplatz">Kein garantierter Stellplatz</span></template>
+            <div class="input-fields-grid">
+              <div class="field-row"><label for="own_stellplatz">Stellplatzmiete <span class="unit">€/Monat</span></label><input type="number" id="own_stellplatz" min="0" step="5" aria-describedby="stellplatz-hint"></div>
+              <div class="field-row"><label for="own_parkausweis">Anwohnerparkausweis o. Ä. <span class="unit">€/Jahr</span></label><input type="number" id="own_parkausweis" min="0" step="5" aria-describedby="stellplatz-hint"></div>
+            </div>
+            <div class="toggle-row">
+              <span id="parking-label">Ich habe für das eigene Auto einen garantierten Stellplatz.</span>
+              <label class="switch"><input type="checkbox" id="use_parkplatz" aria-labelledby="parking-label" aria-describedby="stellplatz-hint"><span class="slider"></span></label>
+            </div>
+            <p class="hint parking-hint" id="stellplatz-hint" aria-live="polite"></p>
+          </div>
+          <button class="scenario-more-btn" id="own-reset-btn" type="button">Autodaten zurücksetzen</button>
         </div>
 
-        <div class="group">
+        <div class="group input-section input-section--usage">
           <h2 class="section-heading"><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19c4-1 3-6 7-7s3-5 7-7M5 19h.01M19 5h.01M8 5l3 3-3 3"/></svg><span>Deine Nutzung</span></h2>
           <p class="hint">Wie viel und wie du unterwegs bist</p>
 
@@ -111,111 +135,150 @@
             </div>
           </section>
 
-          <div class="field-row"><label for="use_jahreskm">Fahrleistung <span class="unit">km/Jahr</span></label><input type="number" id="use_jahreskm" min="0" step="100"></div>
-          <div class="field-row"><label for="use_vergleichsjahre">Betrachtungszeitraum für einmalige Gebühren <span class="unit">Jahre</span></label><input type="number" id="use_vergleichsjahre" min="1" step="1"></div>
 
-          <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M8 5h11v11"/></svg><span>Alltagsfahrten</span></h3>
-          <div class="field-row"><label for="use_kurzfahrten">Alltagsfahrten <span class="unit">Anzahl/Monat</span></label><input type="number" id="use_kurzfahrten" min="0" step="1"></div>
-          <div class="field-row"><label for="use_stundenprofahrt">Ø Dauer je Alltagsfahrt <span class="unit">Stunden</span></label><input type="number" id="use_stundenprofahrt" min="0" step="0.5"></div>
-          <div class="preference-field booking-model-field">
-            <label for="use_booking_model">Wie wird eine Alltagsfahrt gebucht?</label>
-            <select id="use_booking_model">
-              <option value="continuous">Eine durchgehende Hin- und Rückfahrt</option>
-              <option value="split-return">Hin- und Rückfahrt getrennt buchen</option>
-              <option value="one-way">Einwegfahrt, Rückgabe an anderem Ort</option>
-            </select>
-            <p class="hint">Getrennte Buchungen teilen Strecke und Nutzungszeit auf zwei Buchungen. Einwegfahrten beeinflussen zusätzlich die Eignung stationsbasierter Anbieter.</p>
+          <div class="input-group-slot" data-input-group="usage-daily" data-group-title="Alltag &amp; Fahrleistung" data-group-icon="scenario-icon-route" data-group-open>
+            <template class="input-group-summary-template"><span data-summary-fields="use_jahreskm"></span> km/Jahr · <span data-summary-fields="use_kurzfahrten"></span> Alltagsfahrten/Monat</template>
+            <div class="input-fields-grid">
+              <div class="field-row"><label for="use_jahreskm">Fahrleistung <span class="unit">km/Jahr</span></label><input type="number" id="use_jahreskm" min="0" step="100"></div>
+              <div class="field-row"><label for="use_vergleichsjahre">Betrachtungszeitraum für einmalige Gebühren <span class="unit">Jahre</span></label><input type="number" id="use_vergleichsjahre" min="1" step="1"></div>
+              <div class="field-row"><label for="use_kurzfahrten">Alltagsfahrten <span class="unit">Anzahl/Monat</span></label><input type="number" id="use_kurzfahrten" min="0" step="1"></div>
+              <div class="field-row"><label for="use_stundenprofahrt">Ø Dauer je Alltagsfahrt <span class="unit">Stunden</span></label><input type="number" id="use_stundenprofahrt" min="0" step="0.5"></div>
+            </div>
+            <div class="preference-field booking-model-field">
+              <label for="use_booking_model">Wie wird eine Alltagsfahrt gebucht?</label>
+              <select id="use_booking_model">
+                <option value="continuous">Eine durchgehende Hin- und Rückfahrt</option>
+                <option value="split-return">Hin- und Rückfahrt getrennt buchen</option>
+                <option value="one-way">Einwegfahrt, Rückgabe an anderem Ort</option>
+              </select>
+              <p class="hint">Getrennte Buchungen teilen Strecke und Nutzungszeit auf zwei Buchungen. Einwegfahrten beeinflussen zusätzlich die Eignung stationsbasierter Anbieter.</p>
+            </div>
+
+            <div class="input-subgroup">
+              <h3 class="input-subgroup-title">Planbarkeit &amp; Flexibilität</h3>
+              <fieldset class="radio-group">
+                <legend class="spontaneity-legend">Wie spontan musst du losfahren können?</legend>
+                <label class="radio-option"><input type="radio" name="flex" value="spontan"> Spontan &ndash; oft kurzfristig, am selben Tag</label>
+                <label class="radio-option"><input type="radio" name="flex" value="teilweise"> Teilweise planbar &ndash; meist ein bis zwei Tage vorher</label>
+                <label class="radio-option"><input type="radio" name="flex" value="planbar"> Gut planbar &ndash; Fahrten stehen meist früh fest</label>
+              </fieldset>
+              <div class="preference-field">
+                <label for="use_freefloating_fit">Wie gut passt Free-Floating zu deinem Alltag?</label>
+                <select id="use_freefloating_fit">
+                  <option value="auto">Automatisch aus meinen Angaben</option>
+                  <option value="suitable">Gut geeignet</option>
+                  <option value="supplement">Nur als Ergänzung</option>
+                  <option value="unsuitable">Eher ungeeignet</option>
+                </select>
+                <p class="hint" id="freefloating-fit-hint"></p>
+              </div>
+            </div>
           </div>
 
-          <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20v-8h8v8M6 10l6-6 6 6M10 15h4"/></svg><span>Bring- und Abholfahrten</span></h3>
-          <p class="hint usage-category-hint">Regelmäßige Fahrten zu Schule, Kita, Training oder anderen festen Terminen.</p>
-          <div class="field-row"><label for="use_bringtageprowoche">Bring-/Abholtage <span class="unit">Tage/Woche</span></label><input type="number" id="use_bringtageprowoche" min="0" max="7" step="1"></div>
-          <div class="field-row"><label for="use_bringwochenprojahr">Aktive Wochen <span class="unit">Wochen/Jahr</span></label><input type="number" id="use_bringwochenprojahr" min="0" max="52" step="1"></div>
-          <div class="field-row"><label for="use_bringkmprotag">Gesamte Strecke je Bring-/Abholtag <span class="unit">km</span></label><input type="number" id="use_bringkmprotag" min="0" step="1"></div>
-          <div class="field-row"><label for="use_bringbuchungenprotag">Einzelne Buchungen je Tag <span class="unit">Anzahl</span></label><input type="number" id="use_bringbuchungenprotag" min="0" step="1"></div>
-          <div class="field-row"><label for="use_bringstundenprobuchung">Ø Dauer je Buchung <span class="unit">Stunden</span></label><input type="number" id="use_bringstundenprobuchung" min="0" step="0.25"></div>
-          <div class="field-row"><label for="use_bringseparatanteil">Davon eigenständige Fahrten <span class="unit">%</span></label><input type="number" id="use_bringseparatanteil" min="0" max="100" step="5"></div>
-          <p class="hint usage-category-hint">Sind Wege teilweise mit Arbeitsweg oder Einkäufen kombiniert, zählt hier nur der Anteil, der zusätzlich als eigene Fahrt beziehungsweise Buchung anfällt.</p>
-          <div class="child-seat-needs" aria-labelledby="child-seat-label">
-            <p class="field-label" id="child-seat-label">Kindersitze für diese Fahrten</p>
-            <div class="field-row"><label for="use_child_seat_infant_count">Babyschalen oder Sitze bis 15 kg <span class="unit">Anzahl</span></label><input type="number" id="use_child_seat_infant_count" min="0" max="4" step="1"></div>
-            <div class="field-row"><label for="use_child_seat_booster_count">Sitze oder Sitzerhöhungen von 15 bis 36 kg <span class="unit">Anzahl</span></label><input type="number" id="use_child_seat_booster_count" min="0" max="4" step="1"></div>
-            <p class="hint usage-category-hint">Die Altersgruppen sind Näherungen: Bitte richte die Auswahl immer nach Gewicht, Größe und Zulassung des konkreten Sitzes.</p>
+          <div class="input-group-slot" data-input-group="usage-family" data-group-title="Kinder &amp; Bringfahrten" data-group-icon="scenario-icon-family">
+            <template class="input-group-summary-template"><span data-summary-fields="use_bringtageprowoche"></span> Bring-/Abholtage pro Woche · Kindersitze: <span data-summary-fields="use_child_seat_infant_count use_child_seat_booster_count"></span></template>
+            <p class="hint usage-category-hint">Regelmäßige Fahrten zu Schule, Kita, Training oder anderen festen Terminen.</p>
+            <div class="input-fields-grid">
+              <div class="field-row"><label for="use_bringtageprowoche">Bring-/Abholtage <span class="unit">Tage/Woche</span></label><input type="number" id="use_bringtageprowoche" min="0" max="7" step="1"></div>
+              <div class="field-row"><label for="use_bringwochenprojahr">Aktive Wochen <span class="unit">Wochen/Jahr</span></label><input type="number" id="use_bringwochenprojahr" min="0" max="52" step="1"></div>
+              <div class="field-row"><label for="use_bringkmprotag">Gesamte Strecke je Bring-/Abholtag <span class="unit">km</span></label><input type="number" id="use_bringkmprotag" min="0" step="1"></div>
+              <div class="field-row"><label for="use_bringbuchungenprotag">Einzelne Buchungen je Tag <span class="unit">Anzahl</span></label><input type="number" id="use_bringbuchungenprotag" min="0" step="1"></div>
+              <div class="field-row"><label for="use_bringstundenprobuchung">Ø Dauer je Buchung <span class="unit">Stunden</span></label><input type="number" id="use_bringstundenprobuchung" min="0" step="0.25"></div>
+              <div class="field-row"><label for="use_bringseparatanteil">Davon eigenständige Fahrten <span class="unit">%</span></label><input type="number" id="use_bringseparatanteil" min="0" max="100" step="5"></div>
+            </div>
+            <p class="hint usage-category-hint">Sind Wege teilweise mit Arbeitsweg oder Einkäufen kombiniert, zählt hier nur der Anteil, der zusätzlich als eigene Fahrt beziehungsweise Buchung anfällt.</p>
+            <div class="child-seat-needs" aria-labelledby="child-seat-label">
+              <p class="field-label" id="child-seat-label">Kindersitze für diese Fahrten</p>
+              <div class="input-fields-grid">
+                <div class="field-row"><label for="use_child_seat_infant_count">Babyschalen oder Sitze bis 15 kg <span class="unit">Anzahl</span></label><input type="number" id="use_child_seat_infant_count" min="0" max="4" step="1"></div>
+                <div class="field-row"><label for="use_child_seat_booster_count">Sitze oder Sitzerhöhungen von 15 bis 36 kg <span class="unit">Anzahl</span></label><input type="number" id="use_child_seat_booster_count" min="0" max="4" step="1"></div>
+              </div>
+              <p class="hint usage-category-hint">Die Altersgruppen sind Näherungen: Bitte richte die Auswahl immer nach Gewicht, Größe und Zulassung des konkreten Sitzes.</p>
+            </div>
           </div>
 
-          <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span>Tagesausflüge</span></h3>
-          <div class="field-row"><label for="use_tagesausfluege">Tagesausflüge <span class="unit">Anzahl/Jahr</span></label><input type="number" id="use_tagesausfluege" min="0" step="1"></div>
-          <div class="field-row"><label for="use_stundenproausflug">Ø Dauer je Tagesausflug <span class="unit">Stunden</span></label><input type="number" id="use_stundenproausflug" min="0" step="0.5"></div>
-          <div class="field-row"><label for="use_kmproausflug">Ø Strecke je Tagesausflug <span class="unit">km</span></label><input type="number" id="use_kmproausflug" min="0" step="10"></div>
+          <div class="input-group-slot" data-input-group="usage-outings" data-group-title="Ausflüge &amp; Wochenenden" data-group-icon="scenario-icon-home">
+            <template class="input-group-summary-template"><span data-summary-fields="use_tagesausfluege"></span> Tagesausflüge · <span data-summary-fields="use_mehrtagesfahrten"></span> Mehrtagesfahrten/Jahr</template>
+            <div class="input-subgroup">
+              <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span>Tagesausflüge</span></h3>
+              <div class="input-fields-grid">
+                <div class="field-row"><label for="use_tagesausfluege">Tagesausflüge <span class="unit">Anzahl/Jahr</span></label><input type="number" id="use_tagesausfluege" min="0" step="1"></div>
+                <div class="field-row"><label for="use_stundenproausflug">Ø Dauer je Tagesausflug <span class="unit">Stunden</span></label><input type="number" id="use_stundenproausflug" min="0" step="0.5"></div>
+                <div class="field-row"><label for="use_kmproausflug">Ø Strecke je Tagesausflug <span class="unit">km</span></label><input type="number" id="use_kmproausflug" min="0" step="10"></div>
+              </div>
 
-          <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="14" rx="2"/><path d="M8 3v6M16 3v6M4 11h16"/></svg><span>Wochenend- und Mehrtagesfahrten</span></h3>
-          <div class="field-row"><label for="use_mehrtagesfahrten">Mehrtägige Fahrten <span class="unit">Anzahl/Jahr</span></label><input type="number" id="use_mehrtagesfahrten" min="0" step="1"></div>
-          <div class="field-row"><label for="use_tageprofahrt">Ø Dauer je Mehrtagesfahrt <span class="unit">Tage</span></label><input type="number" id="use_tageprofahrt" min="0" step="1"></div>
-          <div class="field-row"><label for="use_kmprofahrt">Ø Strecke je Mehrtagesfahrt <span class="unit">km</span></label><input type="number" id="use_kmprofahrt" min="0" step="10"></div>
+            </div>
+            <div class="input-subgroup">
+              <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="14" rx="2"/><path d="M8 3v6M16 3v6M4 11h16"/></svg><span>Wochenend- und Mehrtagesfahrten</span></h3>
+              <div class="input-fields-grid">
+                <div class="field-row"><label for="use_mehrtagesfahrten">Mehrtägige Fahrten <span class="unit">Anzahl/Jahr</span></label><input type="number" id="use_mehrtagesfahrten" min="0" step="1"></div>
+                <div class="field-row"><label for="use_tageprofahrt">Ø Dauer je Mehrtagesfahrt <span class="unit">Tage</span></label><input type="number" id="use_tageprofahrt" min="0" step="1"></div>
+                <div class="field-row"><label for="use_kmprofahrt">Ø Strecke je Mehrtagesfahrt <span class="unit">km</span></label><input type="number" id="use_kmprofahrt" min="0" step="10"></div>
+              </div>
 
-          <h3 class="usage-category-title"><svg class="category-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="7" width="14" height="13" rx="2"/><path d="M9 7V4h6v3M9 11v5M15 11v5"/></svg><span>Urlaubsfahrten</span></h3>
-          <div class="field-row"><label for="use_urlaubsfahrten">Urlaubsfahrten <span class="unit">Anzahl/Jahr</span></label><input type="number" id="use_urlaubsfahrten" min="0" step="1"></div>
-          <div class="field-row"><label for="use_tageprourlaub">Ø Dauer je Urlaubsfahrt <span class="unit">Tage</span></label><input type="number" id="use_tageprourlaub" min="0" step="1"></div>
-          <div class="field-row"><label for="use_kmprourlaub">Ø Strecke je Urlaubsfahrt <span class="unit">km</span></label><input type="number" id="use_kmprourlaub" min="0" step="50"></div>
+            </div>
+          </div>
+
+          <div class="input-group-slot" data-input-group="usage-holidays" data-group-title="Urlaubsfahrten" data-group-icon="scenario-icon-commute">
+            <template class="input-group-summary-template"><span data-summary-fields="use_urlaubsfahrten"></span> Fahrten/Jahr · <span data-summary-fields="use_tageprourlaub"></span> Tage je Fahrt</template>
+            <div class="input-fields-grid">
+              <div class="field-row"><label for="use_urlaubsfahrten">Urlaubsfahrten <span class="unit">Anzahl/Jahr</span></label><input type="number" id="use_urlaubsfahrten" min="0" step="1"></div>
+              <div class="field-row"><label for="use_tageprourlaub">Ø Dauer je Urlaubsfahrt <span class="unit">Tage</span></label><input type="number" id="use_tageprourlaub" min="0" step="1"></div>
+              <div class="field-row"><label for="use_kmprourlaub">Ø Strecke je Urlaubsfahrt <span class="unit">km</span></label><input type="number" id="use_kmprourlaub" min="0" step="50"></div>
+            </div>
+          </div>
           <p class="field-validation" id="usage-km-validation" role="status"></p>
 
-          <fieldset class="radio-group">
-            <legend class="spontaneity-legend">Wie spontan musst du losfahren können?</legend>
-            <label class="radio-option"><input type="radio" name="flex" value="spontan"> Spontan &ndash; oft kurzfristig, am selben Tag</label>
-            <label class="radio-option"><input type="radio" name="flex" value="teilweise"> Teilweise planbar &ndash; meist ein bis zwei Tage vorher</label>
-            <label class="radio-option"><input type="radio" name="flex" value="planbar"> Gut planbar &ndash; Fahrten stehen meist früh fest</label>
-          </fieldset>
-          <div class="preference-field">
-            <label for="use_freefloating_fit">Wie gut passt Free-Floating zu deinem Alltag?</label>
-            <select id="use_freefloating_fit">
-              <option value="auto">Automatisch aus meinen Angaben</option>
-              <option value="suitable">Gut geeignet</option>
-              <option value="supplement">Nur als Ergänzung</option>
-              <option value="unsuitable">Eher ungeeignet</option>
-            </select>
-            <p class="hint" id="freefloating-fit-hint"></p>
-          </div>
         </div>
 
-        <div class="group">
-          <h2 class="section-heading"><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10l6 6-7 7-9-9V7Zm5 4h.01"/></svg><span>Carsharing-Tarif</span></h2>
+        <div class="group input-section input-section--provider">
+          <h2 class="section-heading"><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10l6 6-7 7-9-9V7Zm5 4h.01"/></svg><span>Anbieter &amp; Verfügbarkeit</span></h2>
           <p class="hint">Anbieter, Fahrzeugklasse und Tarifmodell für den Vergleich</p>
-          <div class="select-row" id="provider-select-row">
-            <div><label for="sel_provider">Anbieter</label><select id="sel_provider"></select></div>
-            <div><label for="sel_class">Fahrzeugklasse</label><select id="sel_class"></select></div>
-          </div>
-          <div class="select-row">
-            <div><label for="sel_tariff">Tarifmodell</label><select id="sel_tariff"></select></div>
-          </div>
-        </div>
 
-        <div class="group">
-          <h2 class="section-heading"><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Zm0-8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg><span>Standort &amp; Verfügbarkeit</span></h2>
-          <p class="hint" id="location-context-hint">Die Prüfung richtet sich nach dem oben ausgewählten Anbieter.</p>
-
-          <div id="station-location-fields">
-            <div class="loc-row">
-              <label class="sr-only" for="loc_address">Adresse für die Stationssuche</label>
-              <input type="text" id="loc_address" placeholder="Adresse, z. B. Straße, PLZ Ort">
-              <button class="loc-search-btn" id="loc-search-btn" type="button">Stationen suchen</button>
+          <div class="input-group-slot" data-input-group="provider-tariff" data-group-title="Anbieter &amp; Tarif" data-group-icon="scenario-icon-commute" data-group-open>
+            <template class="input-group-summary-template"><span data-summary-fields="sel_provider" data-summary-format="selection"></span> · <span data-summary-fields="sel_class" data-summary-format="selection"></span></template>
+            <div class="select-row" id="provider-select-row">
+              <div><label for="sel_provider">Anbieter</label><select id="sel_provider"></select></div>
+              <div><label for="sel_class">Fahrzeugklasse</label><select id="sel_class"></select></div>
             </div>
-            <p class="loc-source">Automatischer Versuch über OpenStreetMap. Trag Stationszahl und Gehzeit bei Bedarf von Hand ein.</p>
-            <div class="field-row"><label for="loc_count">Stationen im Umkreis <span class="unit" id="loc-provider-label-count">für Cambio</span></label><input type="number" id="loc_count" min="0" step="1"></div>
-            <div class="field-row"><label for="loc_walk">Gehzeit zur nächsten Station <span class="unit" id="loc-provider-label-walk">für Cambio, Min.</span></label><input type="number" id="loc_walk" min="0" step="1"></div>
-            <p class="hint location-values-hint">Diese Werte werden getrennt je stationsbasiertem Anbieter gespeichert.</p>
+            <div class="select-row">
+              <div><label for="sel_tariff">Tarifmodell</label><select id="sel_tariff"></select></div>
+            </div>
           </div>
 
-          <div class="free-floating-location" id="free-floating-location-fields" hidden>
-            <p><strong id="loc-freefloating-provider"></strong> ist ein Free-Floating-Angebot. Fahrzeuge stehen verteilt im Geschäftsgebiet und werden über die Anbieter-App gefunden.</p>
-            <label for="loc_freefloating">Liegt dein Standort im Geschäftsgebiet?</label>
-            <select id="loc_freefloating">
-              <option value="unknown">Noch nicht geprüft</option>
-              <option value="yes">Ja, Anbieter ist verfügbar</option>
-              <option value="no">Nein, nicht verfügbar</option>
-            </select>
-            <p class="hint">Bitte prüfe Geschäftsgebiet und aktuelle Fahrzeugverfügbarkeit direkt in der App. Eine OSM-Stationssuche wäre hier irreführend.</p>
+          <div class="input-group-slot" data-input-group="provider-location" data-group-title="Standort &amp; Erreichbarkeit" data-group-icon="scenario-icon-home">
+            <template class="input-group-summary-template"><span data-summary-visible-for="station-location-fields">Stationen: <span data-summary-fields="loc_count" data-summary-empty="noch offen"></span> · Gehzeit: <span data-summary-fields="loc_walk" data-summary-empty="noch offen"></span> Min.</span><span data-summary-visible-for="free-floating-location-fields">Geschäftsgebiet: <span data-summary-fields="loc_freefloating" data-summary-format="selection"></span></span></template>
+            <p class="hint" id="location-context-hint">Die Prüfung richtet sich nach dem oben ausgewählten Anbieter.</p>
+
+            <div class="select-row" id="location-provider-row" hidden>
+              <div><label for="loc_provider">Anbieter für die Standortprüfung</label><select id="loc_provider"></select></div>
+            </div>
+            <div id="station-location-fields">
+              <div class="loc-row">
+                <label class="sr-only" for="loc_address">Adresse für die Stationssuche</label>
+                <input type="text" id="loc_address" placeholder="Adresse, z. B. Straße, PLZ Ort">
+                <button class="loc-search-btn" id="loc-search-btn" type="button">Stationen suchen</button>
+              </div>
+              <p class="loc-source">Suche über OpenStreetMap-Dienste. Bei Störungen werden die Suchkoordinaten auch an den Ersatzdienst Private.coffee gesendet. Trag Stationszahl und Gehzeit bei Bedarf von Hand ein.</p>
+              <div class="input-fields-grid">
+                <div class="field-row"><label for="loc_count">Stationen im Umkreis <span class="unit" id="loc-provider-label-count">für Cambio</span></label><input type="number" id="loc_count" min="0" step="1"></div>
+                <div class="field-row"><label for="loc_walk">Gehzeit zur nächsten Station <span class="unit" id="loc-provider-label-walk">für Cambio, Min.</span></label><input type="number" id="loc_walk" min="0" step="1"></div>
+              </div>
+              <p class="hint location-values-hint">Diese Werte werden getrennt je stationsbasiertem Anbieter gespeichert.</p>
+            </div>
+
+            <div class="free-floating-location" id="free-floating-location-fields" hidden>
+              <p><strong id="loc-freefloating-provider"></strong> ist ein Free-Floating-Angebot. Fahrzeuge stehen verteilt im Geschäftsgebiet und werden über die Anbieter-App gefunden.</p>
+              <label for="loc_freefloating">Liegt dein Standort im Geschäftsgebiet?</label>
+              <select id="loc_freefloating">
+                <option value="unknown">Noch nicht geprüft</option>
+                <option value="yes">Ja, Anbieter ist verfügbar</option>
+                <option value="no">Nein, nicht verfügbar</option>
+              </select>
+              <p class="hint">Bitte prüfe Geschäftsgebiet und aktuelle Fahrzeugverfügbarkeit direkt in der App. Eine OSM-Stationssuche wäre hier irreführend.</p>
+            </div>
+            <p class="loc-status" id="loc_status" role="status"></p>
           </div>
-          <p class="loc-status" id="loc_status" role="status"></p>
         </div>
 
         <button class="reset-link" id="reset-btn" type="button">Eigene Angaben zurücksetzen</button>
@@ -329,8 +392,7 @@
     hinterlegten Beispielwerte. Einzelne Angaben &ndash; etwa zu Tarifen, Kosten oder Stationsverfügbarkeit &ndash; können
     veraltet, unvollständig oder schlicht falsch sein, unter anderem weil zugrunde liegende Daten fehlen oder sich Preise
     geändert haben. Er ersetzt keine Beratung und keinen Blick in die aktuellen Vertragsbedingungen der Anbieter. Bitte
-    verschaffe dir vor einem Vertragsabschluss unbedingt selbst ein aktuelles Bild, etwa direkt bei Cambio, Miles, Free2move
-    oder Flinkster. Sollte eine Regelung dieses Hinweises unwirksam sein, bleiben die übrigen davon unberührt.
+    prüfe vor einem Vertragsabschluss die aktuellen Preise, Leistungen und Vertragsbedingungen direkt beim jeweiligen Anbieter. Sollte eine Regelung dieses Hinweises unwirksam sein, bleiben die übrigen davon unberührt.
   </div>
 
   <div class="copyright-notice">
@@ -348,11 +410,47 @@
   <symbol id="scenario-icon-route" viewBox="0 0 24 24"><path d="M5 19c4-1 3-6 7-7s3-5 7-7M5 19h.01M19 5h.01M8 5l3 3-3 3"/></symbol>
 </svg>
 
+<template id="input-group-template">
+  <details class="input-group">
+    <summary class="input-group-header">
+      <svg class="input-group-icon" viewBox="0 0 24 24" aria-hidden="true"><use></use></svg>
+      <span class="input-group-heading">
+        <span class="input-group-title"></span>
+        <span class="input-group-summary"></span>
+      </span>
+    </summary>
+    <div class="input-group-body"></div>
+  </details>
+</template>
+
 <template id="insight-card-template">
   <div class="insight-card">
     <span class="insight-title"></span>
     <span class="insight-text"></span>
   </div>
+</template>
+
+<template id="own-profile-card-template">
+  <article class="scenario-card own-profile-card">
+    <svg class="scenario-card-icon" viewBox="0 0 24 24" aria-hidden="true"><use class="scenario-icon-use"></use></svg>
+    <h4 class="scenario-title"></h4>
+    <p class="scenario-summary"></p>
+    <dl class="own-profile-costs">
+      <div><dt>Wartung, Reparaturen &amp; Reifen</dt><dd><span data-profile-cost="workshop"></span>/Jahr</dd></div>
+      <div><dt>Versicherung (HP + Vollkasko)</dt><dd><span data-profile-cost="insurance"></span>/Jahr</dd></div>
+      <div><dt>Steuer &amp; HU/AU</dt><dd><span data-profile-cost="tax-inspection"></span>/Jahr</dd></div>
+    </dl>
+    <button class="scenario-apply" type="button">Kostenwerte übernehmen</button>
+  </article>
+</template>
+
+<template id="parking-hint-template">
+  <span data-parking-mode="guaranteed">Stellplatzmiete × 12 und der jährliche Parkausweis werden immer addiert. Nicht anfallende Kosten bitte mit 0 eintragen. Der garantierte Stellplatz wird nur bei den Hinweisen zur Parkplatzsuche berücksichtigt.</span>
+  <span data-parking-mode="public">Stellplatzmiete × 12 und der jährliche Parkausweis werden immer addiert. Nicht anfallende Kosten bitte mit 0 eintragen. Ohne garantierten Stellplatz weisen wir zusätzlich auf die Parkplatzsuche hin.</span>
+</template>
+
+<template id="own-profile-status-template">
+  <span>Jahreswerte übernommen: Wartung inklusive Reifen <strong data-own-cost="wartung"></strong>, Versicherung <strong data-own-cost="versicherung"></strong>, Steuer inklusive HU/AU <strong data-own-cost="sonstiges"></strong>. Bitte ersetze die Beispielwerte bei Bedarf durch deine tatsächlichen Kosten.</span>
 </template>
 
 <template id="scenario-card-template">
@@ -489,6 +587,16 @@
 <script src="calculator.js"></script>
 <script src="recommendations.js"></script>
 <script src="own-car-profiles.js"></script>
+<script src="station-search.js"></script>
+<script src="state-validation.js"></script>
+<script src="state-storage.js"></script>
+<script src="sharing.js"></script>
+<script src="usage-scenarios.js"></script>
+<script src="profiles-ui.js"></script>
+<script src="location-ui.js"></script>
+<script src="results-ui.js"></script>
+<script src="tariff-editor.js"></script>
+<script src="input-groups-ui.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -91,3 +91,24 @@ Before merging or shipping a change, ask:
 - Is the code easier to maintain after this change than before it?
 
 If the answer is no, revise the implementation.
+
+## Modularization
+
+- Split code by responsibility, not merely by file size.
+- Keep `app.js` focused on initialization, shared state and module wiring.
+- Separate calculation, data access, validation, rendering and event handling.
+- Store static data and configuration in dedicated files.
+- Define small, explicit public APIs. Keep internal helpers private.
+- Pass required state and functions as named dependencies. Avoid hidden dependencies and circular module calls.
+- Module initialization must not trigger network requests or UI changes. Start these actions explicitly.
+- Keep temporary state, such as timers, search generations and undo information, inside the responsible module.
+- Account for shared-state sections being replaced. Do not retain references that can become stale.
+- Use provider-neutral names for general data models, such as `alternative` instead of `cambio`.
+
+### Refactoring workflow
+
+- Before larger changes, describe module boundaries, implementation order and acceptance criteria.
+- Extract incrementally while preserving existing behavior and data formats.
+- Verify affected interfaces with appropriate tests and exercise affected UI flows in a browser.
+- Document new module boundaries and public APIs.
+- Keep additional bug fixes clearly distinguishable from structural changes.
