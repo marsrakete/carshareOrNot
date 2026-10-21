@@ -513,6 +513,123 @@
         ]
       }
     ]
+  },
+  {
+    "id": "gruene-flotte",
+    "name": "Grüne Flotte · Bonn",
+    "operationMode": "station-based",
+    "meta": {
+      "sourceUrl": "https://gruene-flotte.com/carsharing/mietpreise-gruene-flotte/",
+      "region": "Bonn · Grün · 7–24 Uhr · inkl. 0,05 €/km Kraftstoffzuschlag",
+      "lastVerifiedAt": "2026-10-21"
+    },
+    "classes": [
+      {
+        "id": "klein",
+        "name": "Kleinwagen (XS / S)",
+        "childSeats": {
+          "infant": "check",
+          "booster": "check",
+          "boosterCount": 0
+        },
+        "tariffs": [
+          {
+            "id": "xs",
+            "name": "XS · Grün · 7–24 Uhr",
+            "billingMode": "time-and-distance",
+            "grundgebuehr": 0,
+            "zeitpreis": 1.8,
+            "tagespreis": 29,
+            "wochenpreis": 155,
+            "kmBis100": 0.35,
+            "kmAb100": 0.32,
+            "anmeldegebuehr": 30
+          },
+          {
+            "id": "s",
+            "name": "S · Grün · 7–24 Uhr",
+            "billingMode": "time-and-distance",
+            "grundgebuehr": 0,
+            "zeitpreis": 2.3,
+            "tagespreis": 38,
+            "wochenpreis": 195,
+            "kmBis100": 0.37,
+            "kmAb100": 0.34,
+            "anmeldegebuehr": 30
+          }
+        ]
+      },
+      {
+        "id": "kombi",
+        "name": "Mittelklasse (M / L)",
+        "childSeats": {
+          "infant": "check",
+          "booster": "check",
+          "boosterCount": 0
+        },
+        "tariffs": [
+          {
+            "id": "m",
+            "name": "M · Grün · 7–24 Uhr",
+            "billingMode": "time-and-distance",
+            "grundgebuehr": 0,
+            "zeitpreis": 2.9,
+            "tagespreis": 48,
+            "wochenpreis": 245,
+            "kmBis100": 0.41,
+            "kmAb100": 0.38,
+            "anmeldegebuehr": 30
+          },
+          {
+            "id": "l",
+            "name": "L · Grün · 7–24 Uhr",
+            "billingMode": "time-and-distance",
+            "grundgebuehr": 0,
+            "zeitpreis": 3.6,
+            "tagespreis": 57,
+            "wochenpreis": 295,
+            "kmBis100": 0.41,
+            "kmAb100": 0.38,
+            "anmeldegebuehr": 30
+          }
+        ]
+      },
+      {
+        "id": "transporter",
+        "name": "Transporter (XL / XXL)",
+        "childSeats": {
+          "infant": "check",
+          "booster": "check",
+          "boosterCount": 0
+        },
+        "tariffs": [
+          {
+            "id": "xl",
+            "name": "XL · Grün · 7–24 Uhr",
+            "billingMode": "time-and-distance",
+            "grundgebuehr": 0,
+            "zeitpreis": 4.6,
+            "tagespreis": 74,
+            "wochenpreis": 375,
+            "kmBis100": 0.46,
+            "kmAb100": 0.43,
+            "anmeldegebuehr": 30
+          },
+          {
+            "id": "xxl",
+            "name": "XXL · Grün · 7–24 Uhr",
+            "billingMode": "time-and-distance",
+            "grundgebuehr": 0,
+            "zeitpreis": 5,
+            "tagespreis": 80,
+            "wochenpreis": 405,
+            "kmBis100": 0.48,
+            "kmAb100": 0.45,
+            "anmeldegebuehr": 30
+          }
+        ]
+      }
+    ]
   }
 ];
 })(window);

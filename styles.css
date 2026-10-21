@@ -595,3 +595,9 @@
     .kv-table th:nth-child(2), .kv-table td:nth-child(2),
     .kv-table th:nth-child(3), .kv-table td:nth-child(3){ width: 26%; }
   }
+
+  .own-profile-picker summary, .own-cost-guide summary{ cursor: pointer; font-weight: 600; font-size: 13px; }
+  .own-cost-guide{ margin: 12px 0; font-size: 13px; line-height: 1.5; }
+  .own-cost-guide ol{ padding-left: 20px; }
+  .own-cost-guide li + li{ margin-top: 8px; }
+  #own-reset-btn{ margin: 0 0 14px; }

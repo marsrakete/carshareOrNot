@@ -49,13 +49,31 @@
         <div class="group">
           <h2 class="section-heading"><svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14l1.8-5h12.4l1.8 5M3 14h18v5h-2v-2H5v2H3v-5Zm4 0h.01M17 14h.01"/></svg><span>Das eigene Auto</span></h2>
           <p class="hint">Gebrauchtwagen-Kauf und laufende Kosten</p>
+          <details class="scenario-picker own-profile-picker">
+            <summary>Werkstattkosten mit einem Autoprofil schätzen</summary>
+            <p class="hint">Die Vorlage übernimmt nur Wartung, Reparaturen und Reifen. Kaufpreis und alle weiteren Kosten bitte individuell eintragen.</p>
+            <p class="hint">Grobe Orientierung aus jeweils zwei ADAC-Modellberechnungen für Varianten um 2020/2021, abgelesen am 21.10.2026: 15.000 km/Jahr, fünf Jahre Haltedauer. Kein repräsentativer Klassendurchschnitt und keine Garantie für ein bestimmtes Fahrzeugalter.</p>
+            <div class="scenario-list is-expanded" id="own-profile-list"></div>
+          </details>
+          <details class="own-cost-guide">
+            <summary>So ermittelst du deine tatsächlichen Autokosten</summary>
+            <ol>
+              <li>Erfasse Wartung, Reparaturen und Reifen über mehrere Jahre und teile die Summe durch die Anzahl der Jahre. Alternativ verteile planbare Arbeiten nach ihrem Intervall: 600 € alle zwei Jahre entsprechen 300 €/Jahr.</li>
+              <li>Berücksichtige zusätzlich Verschleiß und eine Reparaturrücklage. Ein einzelner Inspektionspreis deckt nicht sämtliche Werkstattkosten ab. Alter, Kilometerstand, Motorisierung und Werkstatt beeinflussen die Kosten.</li>
+              <li>Die Profilwerte enthalten Reifen bereits. Trage unter „Steuer, TÜV u. Ä.“ keine Reifen ein. Falls dort bisher Reifen enthalten waren, ziehe deren Jahresanteil selbst ab; die App kennt diesen Anteil nicht.</li>
+              <li>Vergleiche bei Bedarf dein konkretes Modell im <a href="https://www.adac.de/rund-ums-fahrzeug/autokatalog/" target="_blank" rel="noopener noreferrer">ADAC-Autokatalog</a>. Achte auf Monats- und Jahreswerte sowie die zugrunde liegende Fahrleistung. Die Profile passen sich nicht automatisch an deine Kilometer an.</li>
+              <li>Trage Kaufpreis, erwarteten Wiederverkaufswert, Versicherung, Steuer, TÜV und gegebenenfalls Parkkosten anhand deiner eigenen Unterlagen ein. Überschreibe die Richtwerte durch deine tatsächlichen Kosten.</li>
+            </ol>
+          </details>
+          <p class="hint" id="own-profile-status" role="status" aria-live="polite"></p>
+          <button class="scenario-more-btn" id="own-reset-btn" type="button">Autodaten zurücksetzen</button>
 
           <div class="field-row"><label for="own_kaufpreis">Kaufpreis</label><input type="number" id="own_kaufpreis" min="0" step="100"></div>
           <div class="field-row"><label for="own_haltedauer">Haltedauer <span class="unit">Jahre</span></label><input type="number" id="own_haltedauer" min="1" step="1"></div>
           <div class="field-row"><label for="own_restwert">Wiederverkaufswert danach</label><input type="number" id="own_restwert" min="0" step="100"></div>
-          <div class="field-row"><label for="own_wartung">Wartung &amp; Reparaturen <span class="unit">€/Jahr</span></label><input type="number" id="own_wartung" min="0" step="10"></div>
+          <div class="field-row"><label for="own_wartung">Wartung, Reparaturen &amp; Reifen <span class="unit">€/Jahr</span></label><input type="number" id="own_wartung" min="0" step="1"></div>
           <div class="field-row"><label for="own_versicherung">Versicherung <span class="unit">€/Jahr</span></label><input type="number" id="own_versicherung" min="0" step="10"></div>
-          <div class="field-row"><label for="own_sonstiges">Steuer, TÜV, Reifen u.ä. <span class="unit">€/Jahr</span></label><input type="number" id="own_sonstiges" min="0" step="10"></div>
+          <div class="field-row"><label for="own_sonstiges">Steuer, TÜV u. Ä. (ohne Reifen) <span class="unit">€/Jahr</span></label><input type="number" id="own_sonstiges" min="0" step="10"></div>
           <div class="field-row"><label for="own_sonstiges_extra">Sonstiges <span class="unit">€/Jahr</span></label><input type="number" id="own_sonstiges_extra" min="0" step="10" value="0"></div>
           <div class="field-row"><label for="own_verbrauch">Verbrauch <span class="unit">l/100 km</span></label><input type="number" id="own_verbrauch" min="0" step="0.1"></div>
           <div class="field-row"><label for="own_kraftstoffpreis">Kraftstoffpreis <span class="unit">€/l</span></label><input type="number" id="own_kraftstoffpreis" min="0" step="0.01"></div>
@@ -470,6 +488,7 @@
 <script src="providers.js"></script>
 <script src="calculator.js"></script>
 <script src="recommendations.js"></script>
+<script src="own-car-profiles.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -119,11 +119,11 @@
       if(hasChildSeatNeed(state.usage) || hasSchoolRuns){
         effectiveFit = FREE_FLOATING_UNSUITABLE;
         if(hasChildSeatNeed(state.usage) && hasSchoolRuns){
-          reason = 'automatisch herabgestuft: Kindersitz und regelmäßige Bringfahrten';
+          reason = 'automatisch ausgeschlossen: Kindersitz und regelmäßige Bringfahrten';
         } else if(hasChildSeatNeed(state.usage)){
-          reason = 'automatisch herabgestuft: Kindersitz benötigt';
+          reason = 'automatisch ausgeschlossen: Kindersitz benötigt';
         } else {
-          reason = 'automatisch herabgestuft: regelmäßige Bringfahrten';
+          reason = 'automatisch ausgeschlossen: regelmäßige Bringfahrten';
         }
       } else {
         effectiveFit = FREE_FLOATING_SUITABLE;
@@ -140,8 +140,6 @@
     var factor = 1;
     if(effectiveFit === FREE_FLOATING_SUPPLEMENT){
       factor = 1.25;
-    } else if(effectiveFit === FREE_FLOATING_UNSUITABLE){
-      factor = 1.75;
     }
     return { selected: selectedFit, effective: effectiveFit, factor: factor, reason: reason };
   }
@@ -245,12 +243,21 @@
    * Erzeugt alle verfügbaren Tarifkandidaten einer Fahrzeugklasse.
    * @param {Object} state - Vollständiger Anwendungszustand.
    * @param {string} classId - Gewünschte Fahrzeugklasse.
-   * @returns {Array<Object>} Berechnete und am Standort nicht ausgeschlossene Tarife.
+   * @returns {Array<Object>} Berechnete Tarife, die nach Standort und Alltagseignung für den Empfehlungsmodus erlaubt sind.
    */
   function buildCandidates(state, classId){
     var candidates = [];
+    var fit = resolveFreeFloatingFit(state);
     for(var providerIndex = 0; providerIndex < state.providers.length; providerIndex += 1){
       var provider = state.providers[providerIndex];
+      if(provider.operationMode === 'free-floating'){
+        if(fit.effective === FREE_FLOATING_UNSUITABLE){
+          continue;
+        }
+        if(fit.effective === FREE_FLOATING_SUPPLEMENT && state.selection.recommendationMode !== MODE_MIX){
+          continue;
+        }
+      }
       if(isProviderUnavailable(state, provider.id)){
         continue;
       }

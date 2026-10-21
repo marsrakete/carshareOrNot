@@ -652,3 +652,78 @@ test('shared state validation rejects unknown everyday booking models', function
   app.state.usage.alltagsmodell = 'unknown';
   assert.equal(app.isValidSharedState(app.state), false);
 });
+
+/**
+ * Verifies the Bonn provider participates in direct calculations and recommendations.
+ * @returns {void}
+ */
+test('Grüne Flotte Bonn participates in calculations, recommendations and provider export', function(){
+  const app = loadApplication();
+  const provider = app.state.providers.find(function(candidate){ return candidate.id === 'gruene-flotte'; });
+  assert.ok(provider);
+  app.state.selection = { providerId: provider.id, classId: 'klein', tariffId: 'xs', recommendationMode: 'manual' };
+  const result = app.calculate(app.state);
+  assert.ok(Number.isFinite(result.cambio.total) && result.cambio.total > 0);
+  const exported = app.buildProviderExport(provider);
+  assert.equal(exported.provider.meta.lastVerifiedAt, '2026-10-21');
+  assert.equal(exported.provider.classes[0].tariffs[0].kmBis100, 0.35);
+  app.state.providers.forEach(function(candidate){
+    if(candidate.id !== provider.id){
+      app.state.location.byProvider[candidate.id] = { stationCount: 0, walkMinutes: 0, serviceAvailable: false, source: 'manual' };
+    }
+  });
+  app.state.selection.recommendationMode = 'recommend-single';
+  assert.equal(app.calculateRecommendation(app.state).recommendation.primaryProviderId, provider.id);
+});
+
+/**
+ * Checks that an unsuitable free-floating provider cannot win even with zero prices.
+ * @returns {void}
+ */
+test('unsuitable free-floating is excluded from single and mix recommendations but remains manually calculable', function(){
+  const app = loadApplication();
+  const freeProvider = app.state.providers.find(function(provider){ return provider.id === 'free2move'; });
+  freeProvider.classes.forEach(function(cls){
+    cls.tariffs.forEach(function(t){
+      ['grundgebuehr','zeitpreis','tagespreis','wochenpreis','kmBis100','kmAb100','anmeldegebuehr'].forEach(function(field){ t.v[field] = 0; });
+    });
+  });
+  app.state.usage.freefloatingFit = 'unsuitable';
+  for(const mode of ['recommend-single','recommend-mix']){
+    app.state.selection.recommendationMode = mode;
+    const result = app.calculateRecommendation(app.state);
+    assert.ok(result);
+    result.recommendation.providerIds.forEach(function(id){
+      const provider = app.state.providers.find(function(candidate){ return candidate.id === id; });
+      if(provider) assert.notEqual(provider.operationMode, 'free-floating');
+    });
+    result.recommendation.rows.forEach(function(row){ assert.notEqual(row.providerId, freeProvider.id); });
+  }
+  app.state.providers = [freeProvider];
+  app.state.selection.recommendationMode = 'recommend-single';
+  assert.equal(app.calculateRecommendation(app.state), null);
+  app.state.selection.recommendationMode = 'manual';
+  app.state.selection.providerId = freeProvider.id;
+  app.state.selection.tariffId = 'zeit';
+  assert.equal(app.calculate(app.state).cambio.total, 0);
+});
+
+/**
+ * Checks that supplementary free-floating is available only in the mobility mix.
+ * @returns {void}
+ */
+test('supplementary free-floating is allowed only in mix recommendations', function(){
+  const app = loadApplication();
+  const freeProvider = app.state.providers.find(function(provider){ return provider.id === 'free2move'; });
+  app.state.providers = [freeProvider];
+  app.state.usage.freefloatingFit = 'supplement';
+  app.state.selection.recommendationMode = 'recommend-single';
+  assert.equal(app.calculateRecommendation(app.state), null);
+  app.state.selection.recommendationMode = 'recommend-mix';
+  const mix = app.calculateRecommendation(app.state);
+  assert.ok(mix);
+  assert.ok(mix.recommendation.providerIds.includes(freeProvider.id));
+  app.state.usage.freefloatingFit = 'suitable';
+  app.state.selection.recommendationMode = 'recommend-single';
+  assert.equal(app.calculateRecommendation(app.state).recommendation.primaryProviderId, freeProvider.id);
+});

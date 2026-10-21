@@ -103,6 +103,20 @@
       values: { jahreskm: 10000, kurzfahrten: 20, stundenprofahrt: 9, bringtageprowoche: 0, bringwochenprojahr: 40, bringkmprotag: 12, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 100, kindersitz: false, tagesausfluege: 3, stundenproausflug: 8, kmproausflug: 100, mehrtagesfahrten: 2, tageprofahrt: 2, kmprofahrt: 250, urlaubsfahrten: 1, tageprourlaub: 7, kmprourlaub: 700, flex: 'teilweise', freefloatingFit: 'suitable' }
     },
     {
+      id: 'single-homeoffice-office', title: 'Single, Homeoffice & 2 Bürotage', iconId: 'scenario-icon-commute',
+      summary: '13.440 km/Jahr · 140 km hin und zurück · 2×/Woche · 48 Wochen · 10 Std./Bürotag',
+      values: {
+        jahreskm: 13440, kurzfahrten: 8, stundenprofahrt: 10, alltagsmodell: 'continuous',
+        bringtageprowoche: 0, bringwochenprojahr: 40, bringkmprotag: 12,
+        bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 100,
+        childSeatInfantCount: 0, childSeatBoosterCount: 0, childSeatNeedsReview: false,
+        tagesausfluege: 0, stundenproausflug: 8, kmproausflug: 100,
+        mehrtagesfahrten: 0, tageprofahrt: 2, kmprofahrt: 250,
+        urlaubsfahrten: 0, tageprourlaub: 7, kmprourlaub: 700,
+        flex: 'planbar', freefloatingFit: 'auto'
+      }
+    },
+    {
       id: 'care-frequent', title: 'Pflegefahrten häufig', iconId: 'scenario-icon-care',
       summary: '13.000 km · werktäglich flexibel · bis 50 km',
       values: { jahreskm: 13000, kurzfahrten: 22, stundenprofahrt: 3, bringtageprowoche: 0, bringwochenprojahr: 40, bringkmprotag: 12, bringbuchungenprotag: 2, bringstundenprobuchung: 0.75, bringseparatanteil: 100, kindersitz: false, tagesausfluege: 0, stundenproausflug: 8, kmproausflug: 120, mehrtagesfahrten: 0, tageprofahrt: 3, kmprofahrt: 250, urlaubsfahrten: 0, tageprourlaub: 7, kmprourlaub: 900, flex: 'spontan', freefloatingFit: 'unsuitable' }
@@ -970,6 +984,57 @@
     }catch(e){ /* kein gespeicherter Stand vorhanden - Standardwerte werden verwendet */ }
   }
 
+  /**
+   * Renders owned-car workshop reference profiles using the existing card template.
+   * @returns {void}
+   */
+  function renderOwnProfiles(){
+    var template = document.getElementById('scenario-card-template');
+    var fragment = document.createDocumentFragment();
+    window.CarshareOwnProfiles.profiles.forEach(function(profile){
+      var card = template.content.firstElementChild.cloneNode(true);
+      card.querySelector('.scenario-icon-use').setAttribute('href', '#scenario-icon-commute');
+      card.querySelector('.scenario-title').textContent = profile.title;
+      card.querySelector('.scenario-summary').textContent = fmtEUR(profile.annualWorkshopCost) + '/Jahr · inkl. Reifen. ' + profile.reference;
+      var button = card.querySelector('.scenario-apply');
+      button.setAttribute('aria-label', profile.title + ': Werkstattkosten übernehmen');
+      button.addEventListener('click', function(){ applyOwnProfile(profile.id); });
+      fragment.appendChild(card);
+    });
+    document.getElementById('own-profile-list').replaceChildren(fragment);
+  }
+
+  /**
+   * Applies the selected workshop estimate and refreshes calculation and storage.
+   * @param {string} profileId - Reference profile identifier.
+   * @returns {void}
+   */
+  function applyOwnProfile(profileId){
+    var own = window.CarshareOwnProfiles.applyProfile(state.own, profileId);
+    if(!own){
+      return;
+    }
+    state.own = own;
+    fillOwnInputs();
+    document.getElementById('own-profile-status').textContent = 'Werkstattkosten übernommen: ' + fmtEUR(own.wartung) + '/Jahr inklusive Reifen. Bitte eventuell bisher unter Steuer/TÜV eingerechnete Reifen abziehen und deine übrigen Autokosten prüfen.';
+    render();
+    scheduleSave();
+  }
+
+  /**
+   * Restores owned-car defaults and its parking choice without replacing the driving profile.
+   * @returns {void}
+   */
+  function resetOwnCar(){
+    state.own = defaultOwn();
+    state.usage.parkplatz = defaultUsage().parkplatz;
+    fillOwnInputs();
+    document.getElementById('use_parkplatz').checked = state.usage.parkplatz;
+    document.getElementById('own-profile-status').textContent = 'Autodaten auf Beispielvorgaben zurückgesetzt. Bitte prüfe die Jahreskosten einschließlich Reifen.';
+    render();
+    scheduleSave();
+  }
+
   // ---------- Helpers ----------
 
   /**
@@ -1253,7 +1318,13 @@
     if(fit.selected === recommendationData.FREE_FLOATING_AUTO){
       prefix = 'Automatische Einstufung: ';
     }
-    document.getElementById('freefloating-fit-hint').textContent = prefix + fit.reason + '. Die angezeigten Eurobeträge bleiben unverändert.';
+    var effect = 'Free-Floating wird normal berücksichtigt.';
+    if(fit.effective === recommendationData.FREE_FLOATING_UNSUITABLE){
+      effect = 'Free-Floating ist aus automatischen Empfehlungen ausgeschlossen.';
+    } else if(fit.effective === recommendationData.FREE_FLOATING_SUPPLEMENT){
+      effect = 'Free-Floating wird ausschließlich im Mobilitätsmix berücksichtigt.';
+    }
+    document.getElementById('freefloating-fit-hint').textContent = prefix + fit.reason + '. ' + effect + ' Eine manuelle Anbieterwahl bleibt möglich.';
   }
 
   /**
@@ -1510,7 +1581,11 @@
       var allStations = opData.elements || [];
 
       var needle = provider.name.toLowerCase().replace('(vormals share now)', '').trim();
-      var aliasMap = { free2move: ['free2move', 'share now', 'sharenow', 'car2go'], sixtshare: ['sixt'] };
+      var aliasMap = {
+        free2move: ['free2move', 'share now', 'sharenow', 'car2go'],
+        sixtshare: ['sixt'],
+        'gruene-flotte': ['grüne flotte', 'gruene flotte', 'gruene-flotte']
+      };
       var needles = aliasMap[provider.id] || [needle];
 
       /**
@@ -1721,7 +1796,7 @@
     var locationIsFreeFloating = selectedLocationProvider && selectedLocationProvider.operationMode === 'free-floating';
     if(r.recommendation && r.recommendation.unavailable){
       cards.push({ tone: 'bad', title: 'Keine verfügbare Empfehlung',
-        text: 'Für diese Fahrzeugklasse sind alle passenden Anbieter am bestätigten Standort ausgeschlossen.' });
+        text: 'Nach Fahrzeugklasse, Standort und Alltagseignung bleibt kein passender Anbieter für diesen Empfehlungsmodus übrig.' });
     } else if(r.recommendation && !r.recommendation.locationKnown){
       var missingLocationText = 'Für mindestens einen vorgeschlagenen Anbieter fehlen bestätigte Standortwerte. Prüfe die Verfügbarkeit vor deiner Entscheidung.';
       if(resultUsesFreeFloating(r) && !resultUsesStations(r)){
@@ -1986,7 +2061,7 @@
     document.getElementById('recommendation-title').textContent = result.recommendation.title;
     var basis = '';
     if(result.recommendation.unavailable){
-      basis = 'Für die gewählte Fahrzeugklasse bleibt nach den bestätigten Standortangaben kein verfügbarer Anbieter übrig.';
+      basis = 'Nach Fahrzeugklasse, Standort und Alltagseignung bleibt kein passender Anbieter für diesen Empfehlungsmodus übrig.';
     } else {
       basis = 'Grundgebühren und anteilige Anmeldegebühren sind im Gesamtergebnis enthalten. ';
       if(result.recommendation.locationKnown){
@@ -2169,7 +2244,7 @@
       headline.textContent = fmtEUR(r.own.total) + ' / Jahr';
       headline.className = 'headline-figure';
       if(r.recommendation && r.recommendation.unavailable){
-        sub.textContent = 'Für die gewählte Fahrzeugklasse ist kein bestätigter Anbieter verfügbar.';
+        sub.textContent = 'Für Fahrzeugklasse, Standort und Alltagseignung ist keine passende Empfehlung verfügbar.';
       } else {
         sub.textContent = 'Lege rechts einen Carsharing-Tarif an, um zu vergleichen.';
       }
@@ -2285,6 +2360,7 @@
    * @returns {void}
    */
   function bindRechnerEvents(){
+    document.getElementById('own-reset-btn').addEventListener('click', resetOwnCar);
     var ownIds = ['own_kaufpreis','own_haltedauer','own_restwert','own_wartung','own_versicherung','own_sonstiges','own_sonstiges_extra','own_verbrauch','own_kraftstoffpreis','own_stellplatz','own_parkausweis'];
     var useIds = [
       'use_jahreskm','use_vergleichsjahre','use_kurzfahrten','use_stundenprofahrt',
@@ -2964,6 +3040,7 @@
     fillUsageInputs();
     fillLocationInputs();
     renderUsageScenarios();
+    renderOwnProfiles();
     bindRechnerEvents();
     renderProviders();
     bindTariffEvents();
